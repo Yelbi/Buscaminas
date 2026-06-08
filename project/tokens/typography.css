@@ -1,0 +1,44 @@
+/* ============================================================
+   Buscaminas — Typography tokens
+   Display: Pixelify Sans (modern, legible pixel)
+   UI/body: Space Grotesk (techy grotesque)
+   Digits:  VT323 (terminal/scoreboard counters)
+   ============================================================ */
+
+:root {
+  /* ---- Families ---- */
+  --font-display: 'Pixelify Sans', 'Space Grotesk', system-ui, sans-serif;
+  --font-body:    'Space Grotesk', system-ui, -apple-system, sans-serif;
+  --font-mono:    'VT323', ui-monospace, 'SF Mono', monospace;
+
+  /* ---- Type scale (desktop) ---- */
+  --fs-display:   clamp(48px, 7vw, 88px); /* @kind font */
+  --fs-h1:        44px;
+  --fs-h2:        32px;
+  --fs-h3:        24px;
+  --fs-lg:        20px;
+  --fs-body:      16px;
+  --fs-sm:        14px;
+  --fs-xs:        12px;
+
+  /* Scoreboard / counter digits */
+  --fs-counter:   40px;
+  --fs-counter-lg: 56px;
+
+  /* ---- Weights ---- */
+  --fw-regular:   400; /* @kind font */
+  --fw-medium:    500; /* @kind font */
+  --fw-semibold:  600; /* @kind font */
+  --fw-bold:      700; /* @kind font */
+
+  /* ---- Line heights ---- */
+  --lh-tight:     1.05; /* @kind font */
+  --lh-snug:      1.25; /* @kind font */
+  --lh-normal:    1.5; /* @kind font */
+
+  /* ---- Letter spacing ---- */
+  --ls-tight:     -0.02em; /* @kind font */
+  --ls-normal:    0; /* @kind font */
+  --ls-wide:      0.04em; /* @kind font */
+  --ls-wider:     0.12em; /* @kind font */
+}

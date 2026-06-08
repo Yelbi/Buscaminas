@@ -1,0 +1,9 @@
+/* ============================================================
+   Buscaminas — Webfonts
+   Pixel/retro display + clean techy UI + terminal digits.
+   Loaded from Google Fonts. If you self-host, drop the woff2
+   files in /assets/fonts and replace the @import with
+   local @font-face rules.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&family=Space+Grotesk:wght@400;500;600;700&family=VT323&display=swap');

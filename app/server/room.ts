@@ -1,0 +1,296 @@
+/* ============================================================
+   Buscaminas — Room model (authoritative game host)
+   One Room per multiplayer match. Owns the board(s), validates
+   every action, and produces render-safe snapshots per player.
+   ============================================================ */
+
+import type { WebSocket } from 'ws';
+import {
+  createState,
+  flagsRemaining,
+  projectBoard,
+  populateFromSeed,
+  randomSeed,
+  reveal,
+  revealAllMines,
+  toggleFlag,
+  chord,
+  progress,
+} from '../shared/minesweeper';
+import { DIFFICULTIES } from '../shared/types';
+import type { DifficultyId, GameMode, GameState, PlayerSlotId } from '../shared/types';
+import type { GameResult, GameSnapshot, PlayerInfo, RoomSnapshot } from '../shared/protocol';
+
+export interface Player {
+  ws: WebSocket;
+  slot: PlayerSlotId;
+  name: string;
+  connected: boolean;
+  ready: boolean;
+  isHost: boolean;
+  score: number;
+  wantsRematch: boolean;
+}
+
+const SLOTS: PlayerSlotId[] = ['p1', 'p2'];
+
+export class Room {
+  code: string;
+  mode: GameMode;
+  difficulty: DifficultyId;
+  phase: 'lobby' | 'playing' | 'finished' = 'lobby';
+  players = new Map<PlayerSlotId, Player>();
+
+  // Game state
+  shared: GameState | null = null;            // co-op: one shared board
+  boards = new Map<PlayerSlotId, GameState>(); // versus: one board per player
+  startedAt = 0;
+  result: GameResult | null = null;
+  tick: ReturnType<typeof setInterval> | null = null;
+
+  constructor(code: string, mode: GameMode, difficulty: DifficultyId) {
+    this.code = code;
+    this.mode = mode;
+    this.difficulty = difficulty;
+  }
+
+  get hostSlot(): PlayerSlotId {
+    for (const p of this.players.values()) if (p.isHost) return p.slot;
+    return 'p1';
+  }
+
+  freeSlot(): PlayerSlotId | null {
+    return SLOTS.find((s) => !this.players.has(s)) ?? null;
+  }
+
+  isEmpty(): boolean {
+    return this.players.size === 0;
+  }
+
+  addPlayer(ws: WebSocket, name: string): Player | null {
+    const slot = this.freeSlot();
+    if (!slot) return null;
+    const isHost = this.players.size === 0;
+    const player: Player = {
+      ws, slot, name: name || (slot === 'p1' ? 'Jugador 1' : 'Jugador 2'),
+      connected: true, ready: isHost ? false : false, isHost, score: 0, wantsRematch: false,
+    };
+    this.players.set(slot, player);
+    return player;
+  }
+
+  removePlayer(slot: PlayerSlotId): void {
+    this.players.delete(slot);
+    // Promote a new host if needed.
+    if (![...this.players.values()].some((p) => p.isHost)) {
+      const next = this.players.values().next().value as Player | undefined;
+      if (next) next.isHost = true;
+    }
+  }
+
+  bothPlayersPresent(): boolean {
+    return this.players.size === 2 && [...this.players.values()].every((p) => p.connected);
+  }
+
+  everyoneReady(): boolean {
+    return this.bothPlayersPresent() && [...this.players.values()].every((p) => p.ready);
+  }
+
+  /* ---- Game lifecycle ---- */
+
+  startGame(): void {
+    const cfg = DIFFICULTIES[this.difficulty];
+    this.result = null;
+    this.startedAt = Date.now();
+    this.phase = 'playing';
+    for (const p of this.players.values()) { p.score = 0; p.wantsRematch = false; }
+
+    if (this.mode === 'coop') {
+      // One shared board, first-click safe (mines placed on first reveal).
+      this.shared = createState(cfg.rows, cfg.cols, cfg.mines, true);
+      this.boards.clear();
+    } else {
+      // Versus: identical boards from one seed (fair race).
+      const seed = randomSeed();
+      this.shared = null;
+      this.boards.clear();
+      for (const slot of this.players.keys()) {
+        const st = createState(cfg.rows, cfg.cols, cfg.mines, false);
+        populateFromSeed(st, seed, -1);
+        this.boards.set(slot, st);
+      }
+    }
+  }
+
+  resetToLobby(): void {
+    this.phase = 'lobby';
+    this.shared = null;
+    this.boards.clear();
+    this.result = null;
+    this.startedAt = 0;
+    for (const p of this.players.values()) { p.ready = false; p.wantsRematch = false; p.score = 0; }
+    this.stopTick();
+  }
+
+  stopTick(): void {
+    if (this.tick) { clearInterval(this.tick); this.tick = null; }
+  }
+
+  private boardFor(slot: PlayerSlotId): GameState | null {
+    return this.mode === 'coop' ? this.shared : this.boards.get(slot) ?? null;
+  }
+
+  /* ---- Actions (return true if state changed → caller broadcasts) ---- */
+
+  applyReveal(slot: PlayerSlotId, r: number, c: number, kind: 'reveal' | 'chord'): boolean {
+    if (this.phase !== 'playing') return false;
+    const st = this.boardFor(slot);
+    if (!st || st.status !== 'playing') return false;
+
+    const before = st.revealed;
+    const res = kind === 'chord' ? chord(st, r, c, slot) : reveal(st, r, c, slot);
+    if (!res.changed) return false;
+
+    const player = this.players.get(slot);
+    if (player) player.score += st.revealed - before;
+
+    if (res.hitMine) {
+      revealAllMines(st);
+      this.onBoardLost(slot, 'mine');
+    } else if (res.won) {
+      this.onBoardWon(slot);
+    }
+    this.syncScores();
+    return true;
+  }
+
+  applyFlag(slot: PlayerSlotId, r: number, c: number): boolean {
+    if (this.phase !== 'playing') return false;
+    const st = this.boardFor(slot);
+    if (!st || st.status !== 'playing') return false;
+    return toggleFlag(st, r, c, slot) !== null;
+  }
+
+  private syncScores(): void {
+    if (this.mode === 'versus') {
+      for (const [slot, st] of this.boards) {
+        const p = this.players.get(slot);
+        if (p) p.score = progress(st);
+      }
+    }
+  }
+
+  private onBoardLost(loser: PlayerSlotId, reason: 'mine' | 'forfeit'): void {
+    if (this.mode === 'coop') {
+      this.finish({
+        outcome: 'lose',
+        winner: null,
+        reason: reason === 'forfeit' ? 'Tu compañero salió de la partida.' : 'Una mina detonó. Fin de la partida.',
+        timeMs: Date.now() - this.startedAt,
+      });
+      return;
+    }
+    // Versus: the other player wins.
+    const other = SLOTS.find((s) => s !== loser && this.boards.has(s)) ?? null;
+    if (other) {
+      const otherSt = this.boards.get(other);
+      if (otherSt && otherSt.status === 'playing') otherSt.status = 'won';
+    }
+    this.finish({
+      outcome: 'win',
+      winner: other,
+      reason: reason === 'forfeit' ? 'Tu rival abandonó.' : 'Tu rival pisó una mina.',
+      timeMs: Date.now() - this.startedAt,
+    });
+  }
+
+  private onBoardWon(winner: PlayerSlotId): void {
+    if (this.mode === 'coop') {
+      this.finish({
+        outcome: 'win',
+        winner: null,
+        reason: '¡Campo despejado en equipo!',
+        timeMs: Date.now() - this.startedAt,
+      });
+      return;
+    }
+    // Versus: mark the loser and reveal both boards.
+    for (const [slot, st] of this.boards) {
+      if (slot !== winner && st.status === 'playing') { st.status = 'lost'; revealAllMines(st); }
+    }
+    this.finish({
+      outcome: 'win',
+      winner,
+      reason: 'Tablero despejado primero.',
+      timeMs: Date.now() - this.startedAt,
+    });
+  }
+
+  /** End the match by forfeit when someone leaves mid-game. */
+  forfeit(slot: PlayerSlotId): void {
+    if (this.phase !== 'playing') return;
+    this.onBoardLost(slot, 'forfeit');
+  }
+
+  private finish(result: GameResult): void {
+    this.result = result;
+    this.phase = 'finished';
+    this.stopTick();
+  }
+
+  /* ---- Snapshots ---- */
+
+  snapshot(): RoomSnapshot {
+    const players: PlayerInfo[] = SLOTS.filter((s) => this.players.has(s)).map((s) => {
+      const p = this.players.get(s)!;
+      return { slot: p.slot, name: p.name, connected: p.connected, ready: p.ready, isHost: p.isHost, score: p.score };
+    });
+    return {
+      code: this.code,
+      mode: this.mode,
+      difficulty: this.difficulty,
+      phase: this.phase,
+      hostSlot: this.hostSlot,
+      players,
+    };
+  }
+
+  gameSnapshot(slot: PlayerSlotId): GameSnapshot {
+    const finished = this.phase === 'finished';
+    const scores: Partial<Record<PlayerSlotId, number>> = {};
+    for (const [s, p] of this.players) scores[s] = p.score;
+
+    if (this.mode === 'coop') {
+      const st = this.shared!;
+      return {
+        phase: finished ? 'finished' : 'playing',
+        status: st.status,
+        board: projectBoard(st, finished),
+        flagsRemaining: flagsRemaining(st),
+        elapsedMs: this.elapsed(),
+        scores,
+        result: this.result ?? undefined,
+      };
+    }
+
+    const mine = this.boards.get(slot)!;
+    const otherSlot = SLOTS.find((s) => s !== slot && this.boards.has(s));
+    const other = otherSlot ? this.boards.get(otherSlot)! : null;
+    return {
+      phase: finished ? 'finished' : 'playing',
+      status: mine.status,
+      board: projectBoard(mine, finished),
+      opponentBoard: other ? projectBoard(other, finished) : undefined,
+      flagsRemaining: flagsRemaining(mine),
+      elapsedMs: this.elapsed(),
+      scores,
+      result: this.result ?? undefined,
+    };
+  }
+
+  elapsed(): number {
+    if (!this.startedAt) return 0;
+    const end = this.phase === 'finished' && this.result ? this.startedAt + this.result.timeMs : Date.now();
+    return Math.max(0, end - this.startedAt);
+  }
+}

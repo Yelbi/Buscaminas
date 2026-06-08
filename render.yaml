@@ -1,0 +1,20 @@
+# Render Blueprint — hosts the Buscaminas WebSocket game server.
+# Vercel serves the frontend; this service handles co-op / versus rooms.
+# Deploy: Render Dashboard → New → Blueprint → pick this repo.
+services:
+  - type: web
+    name: buscaminas-ws
+    runtime: node
+    plan: free
+    rootDir: app
+    buildCommand: npm install
+    startCommand: npm run server
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # After your Vercel URL is known, set this to lock the server to it, e.g.
+      # ALLOWED_ORIGINS = https://buscaminas.vercel.app
+      - key: ALLOWED_ORIGINS
+        sync: false

@@ -1,0 +1,76 @@
+/* ============================================================
+   Buscaminas — Color tokens
+   Dark-mode arcade neon. Deep blue-black canvas, vivid neon
+   accents. The classic Minesweeper 1–8 number colors are
+   reinterpreted as neon hues.
+   ============================================================ */
+
+:root {
+  /* ---- Base canvas (dark) ---- */
+  --bg-void:        #07070f;   /* deepest backdrop */
+  --bg-base:        #0b0b16;   /* app background */
+  --surface-1:      #12121f;   /* panels, cards */
+  --surface-2:      #1a1a2b;   /* raised cards, headers */
+  --surface-3:      #232338;   /* hover / inputs */
+  --cell-up:        #1d1d30;   /* unrevealed tile face */
+  --cell-up-2:      #262640;   /* unrevealed tile hover */
+  --cell-down:      #0e0e18;   /* revealed (empty) tile */
+
+  /* ---- Hairlines & borders ---- */
+  --line-soft:      rgba(255,255,255,0.06);
+  --line:           rgba(255,255,255,0.10);
+  --line-strong:    rgba(255,255,255,0.18);
+
+  /* ---- Text ---- */
+  --text-hi:        #f4f5ff;   /* primary text */
+  --text:           #c7c9e0;   /* body text */
+  --text-mid:       #8d90b3;   /* secondary */
+  --text-dim:       #5a5d7e;   /* muted / disabled */
+
+  /* ---- Neon brand spectrum ---- */
+  --neon-cyan:      #19e3ff;   /* primary brand */
+  --neon-blue:      #4d7cff;
+  --neon-purple:    #a85cff;
+  --neon-magenta:   #ff2e97;   /* secondary brand / danger-glam */
+  --neon-pink:      #ff6ec7;
+  --neon-red:       #ff3b5c;   /* mines / lose */
+  --neon-orange:    #ff9f1c;
+  --neon-yellow:    #ffe14d;
+  --neon-lime:      #9dff3d;   /* win / safe */
+  --neon-green:     #2fffa6;
+  --neon-teal:      #2ff0d6;
+
+  /* ---- Semantic aliases ---- */
+  --brand:          var(--neon-cyan);
+  --brand-2:        var(--neon-magenta);
+  --accent:         var(--neon-purple);
+
+  --text-body:      var(--text);
+  --text-title:     var(--text-hi);
+  --surface-card:   var(--surface-1);
+  --surface-raised: var(--surface-2);
+  --surface-input:  var(--surface-3);
+
+  --success:        var(--neon-lime);
+  --warning:        var(--neon-yellow);
+  --danger:         var(--neon-red);
+  --info:           var(--neon-cyan);
+
+  /* Player identity (co-op / versus) */
+  --player-1:       var(--neon-cyan);
+  --player-2:       var(--neon-magenta);
+
+  /* ---- Minesweeper number colors (neon-mapped) ---- */
+  --num-1:          var(--neon-cyan);
+  --num-2:          var(--neon-lime);
+  --num-3:          var(--neon-red);
+  --num-4:          var(--neon-purple);
+  --num-5:          var(--neon-orange);
+  --num-6:          var(--neon-teal);
+  --num-7:          var(--text-hi);
+  --num-8:          var(--neon-magenta);
+
+  /* ---- Flag / mine ---- */
+  --flag:           var(--neon-yellow);
+  --mine:           var(--neon-red);
+}

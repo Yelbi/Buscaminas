@@ -1,0 +1,50 @@
+/* ============================================================
+   Buscaminas — Spacing & sizing tokens
+   8px base grid. Tiles & boards have their own scale.
+   ============================================================ */
+
+:root {
+  /* ---- Spacing scale (8px base) ---- */
+  --sp-0:   0;
+  --sp-1:   4px;
+  --sp-2:   8px;
+  --sp-3:   12px;
+  --sp-4:   16px;
+  --sp-5:   24px;
+  --sp-6:   32px;
+  --sp-7:   48px;
+  --sp-8:   64px;
+  --sp-9:   96px;
+
+  /* ---- Radii ---- */
+  --r-xs:   4px;
+  --r-sm:   8px;
+  --r-md:   12px;
+  --r-lg:   16px;
+  --r-xl:   24px;
+  --r-pill: 999px;
+
+  /* Tiles read crisp/blocky — small radius only */
+  --r-tile: 5px;
+
+  /* ---- Board / tile sizing ---- */
+  --tile-sm:  28px;
+  --tile-md:  38px;
+  --tile-lg:  46px;
+  --tile-gap: 4px;
+
+  /* ---- Layout ---- */
+  --container:    1200px;
+  --container-sm: 720px;
+  --header-h:     64px;
+
+  /* ---- Control heights ---- */
+  --ctl-sm: 32px;
+  --ctl-md: 42px;
+  --ctl-lg: 52px;
+
+  /* ---- Border widths ---- */
+  --bw:     1px;
+  --bw-2:   2px;
+  --bw-3:   3px;
+}

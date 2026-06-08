@@ -1,0 +1,54 @@
+/* ============================================================
+   Buscaminas — Base layer
+   Light resets + a few brand utility classes consumers can use.
+   ============================================================ */
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(1200px 700px at 50% -10%, rgba(25,227,255,0.08), transparent 60%),
+    radial-gradient(900px 600px at 100% 110%, rgba(255,46,151,0.07), transparent 60%),
+    var(--bg-base);
+  color: var(--text-body);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: var(--lh-normal);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---- Typographic helpers ---- */
+.display { font-family: var(--font-display); font-weight: var(--fw-bold); line-height: var(--lh-tight); letter-spacing: var(--ls-tight); color: var(--text-title); }
+.eyebrow {
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  letter-spacing: var(--ls-wider);
+  text-transform: uppercase;
+  color: var(--text-mid);
+}
+.counter { font-family: var(--font-mono); font-size: var(--fs-counter); line-height: 1; letter-spacing: 0.04em; }
+
+/* ---- Neon text glow utilities ---- */
+.glow-cyan    { color: var(--neon-cyan);    text-shadow: var(--text-glow-cyan); }
+.glow-magenta { color: var(--neon-magenta); text-shadow: var(--text-glow-magenta); }
+.glow-lime    { color: var(--neon-lime);    text-shadow: var(--text-glow-lime); }
+
+/* ---- Dotted grid backdrop (board surroundings) ---- */
+.bg-grid {
+  background-image:
+    linear-gradient(var(--line-soft) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* ---- Reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
