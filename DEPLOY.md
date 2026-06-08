@@ -51,9 +51,11 @@ git push -u origin main
 ## 3) Frontend en Vercel
 
 1. Entra en https://vercel.com/new y **importa** el mismo repo de GitHub.
-2. En la configuración del proyecto:
-   - **Root Directory** → `app`  ← importante (el código vive en `app/`).
-   - Framework: **Vite** (se detecta solo). Build/Output ya vienen de `vercel.json`.
+2. Configuración del proyecto:
+   - **Root Directory** → déjalo en la **raíz** del repo. El `vercel.json` de la raíz
+     ya compila `app/` y publica `app/dist` automáticamente (no hace falta cambiarlo).
+   - *(Alternativa)* Si prefieres, pon Root Directory = `app`; entonces se usa
+     `app/vercel.json`. Cualquiera de las dos funciona, pero no las mezcles.
 3. En **Environment Variables**, añade:
    - `VITE_WS_URL` = `wss://buscaminas-ws.onrender.com`  ← tu URL de Render del paso 2.
 4. Pulsa **Deploy**. Al terminar tendrás algo como
