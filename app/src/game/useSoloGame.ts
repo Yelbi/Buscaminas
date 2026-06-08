@@ -20,6 +20,7 @@ interface Snap {
 
 export interface SoloApi {
   difficulty: DifficultyId;
+  round: number;
   board: BoardView;
   status: GameStatus;
   flagsRemaining: number;
@@ -68,6 +69,7 @@ export function useSoloGame(initial: DifficultyId): SoloApi {
   const [started, setStarted] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [bestMs, setBestMs] = useState<number | null>(() => readBest(initial));
+  const [round, setRound] = useState(0);
   const startRef = useRef<number | null>(null);
 
   const commit = useCallback(() => setSnap(build(stateRef.current)), []);
@@ -81,6 +83,7 @@ export function useSoloGame(initial: DifficultyId): SoloApi {
     setElapsedMs(0);
     setBestMs(readBest(diff));
     setSnap(build(stateRef.current));
+    setRound((n) => n + 1);
   }, [difficulty]);
 
   const beginIfNeeded = useCallback(() => {
@@ -140,6 +143,7 @@ export function useSoloGame(initial: DifficultyId): SoloApi {
 
   return {
     difficulty,
+    round,
     board: snap.board,
     status: snap.status,
     flagsRemaining: snap.flagsRemaining,

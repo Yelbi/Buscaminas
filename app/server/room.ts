@@ -117,6 +117,7 @@ export class Room {
       for (const slot of this.players.keys()) {
         const st = createState(cfg.rows, cfg.cols, cfg.mines, false);
         populateFromSeed(st, seed, -1);
+        st.relocateFirst = true; // first click can't be an instant mine
         this.boards.set(slot, st);
       }
     }

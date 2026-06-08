@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Badge, Board, PlayerTag } from '../components';
 import { Hud } from '../ui/Hud';
 import { GameControls } from '../ui/GameControls';
-import { ResultDialog } from '../ui/ResultDialog';
+import { ResultDialog, ResultReopen } from '../ui/ResultDialog';
+import { GameBoard } from '../game/GameBoard';
 import { boardHandlers } from '../game/boardHandlers';
 import type { BoardActions } from '../game/boardHandlers';
 import { toBoardCells, formatClock } from '../lib/format';
@@ -22,12 +23,26 @@ export function OnlineGame({
   api: BoardActions & { rematch: () => void; leave: () => void };
 }) {
   const [flagMode, setFlagMode] = useState(false);
+  const [seqDone, setSeqDone] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const [matchKey, setMatchKey] = useState(0);
+  const prevPhase = useRef<string | null>(null);
+
+  // A new game began → bump the board key and clear result gating.
+  useEffect(() => {
+    if (game.phase === 'playing' && prevPhase.current !== 'playing') {
+      setMatchKey((n) => n + 1);
+      setSeqDone(false);
+      setDismissed(false);
+    }
+    prevPhase.current = game.phase;
+  }, [game.phase]);
+
   const cfg = DIFFICULTIES[room.difficulty];
   const isVersus = room.mode === 'versus';
-  const interactive = game.phase === 'playing' && game.status === 'playing';
-  const handlers = interactive
-    ? boardHandlers(game.board, flagMode, api)
-    : { onCell: () => {}, onCellContext: () => {} };
+  const playing = game.phase === 'playing' && game.status === 'playing';
+  const outcome = game.status === 'won' ? 'win' : game.status === 'lost' ? 'lose' : null;
+  const handlers = boardHandlers(game.board, flagMode, api);
 
   const finished = game.phase === 'finished' && !!game.result;
   const youWon = game.result
@@ -59,9 +74,14 @@ export function OnlineGame({
       />
 
       <div className="board-scroll">
-        <Board
-          cells={toBoardCells(game.board)}
+        <GameBoard
+          view={game.board}
           size={cfg.tile}
+          interactive={playing}
+          gameKey={matchKey}
+          finished={game.phase === 'finished'}
+          outcome={outcome}
+          onSequenceDone={() => setSeqDone(true)}
           onCell={handlers.onCell}
           onCellContext={handlers.onCellContext}
         />
@@ -84,7 +104,7 @@ export function OnlineGame({
         leaveLabel="Salir de la sala"
       />
 
-      {finished && game.result && (
+      {finished && game.result && seqDone && !dismissed && (
         <ResultDialog
           won={youWon}
           eyebrow={isVersus ? (youWon ? '¡Victoria!' : 'Derrota') : (youWon ? 'En equipo' : 'Boom')}
@@ -92,10 +112,14 @@ export function OnlineGame({
           againLabel="Revancha"
           onAgain={api.rematch}
           onMenu={api.leave}
+          onInspect={() => setDismissed(true)}
         >
           {game.result.reason} Tiempo <b style={{ color: youWon ? 'var(--neon-lime)' : 'var(--neon-cyan)' }}>{formatClock(game.result.timeMs)}</b>.
           {' '}La revancha te devuelve a la sala de espera.
         </ResultDialog>
+      )}
+      {finished && game.result && seqDone && dismissed && (
+        <ResultReopen won={youWon} onClick={() => setDismissed(false)} />
       )}
     </div>
   );

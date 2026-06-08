@@ -38,6 +38,8 @@ export function createState(rows: number, cols: number, mines: number, deferMine
     cells,
     started: false,
     deferMines,
+    relocateFirst: false,
+    firstRevealDone: false,
     status: 'playing',
     flags: 0,
     revealed: 0,
@@ -103,21 +105,45 @@ export function generateMineSet(
   return chosen;
 }
 
-/** Apply a mine set to a fresh state and compute adjacency. */
-export function applyMines(state: GameState, mineSet: Set<number>): void {
+/** Recompute the adjacent-mine count for every cell. */
+export function computeAdjacency(state: GameState): void {
   const { rows, cols, cells } = state;
-  for (const idx of mineSet) {
-    cells[Math.floor(idx / cols)][idx % cols].mine = true;
-  }
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      if (cells[r][c].mine) continue;
+      if (cells[r][c].mine) { cells[r][c].adjacent = 0; continue; }
       let n = 0;
       for (const [nr, nc] of neighbors(rows, cols, r, c)) if (cells[nr][nc].mine) n++;
       cells[r][c].adjacent = n;
     }
   }
+}
+
+/** Apply a mine set to a fresh state and compute adjacency. */
+export function applyMines(state: GameState, mineSet: Set<number>): void {
+  const { cols, cells } = state;
+  for (const idx of mineSet) {
+    cells[Math.floor(idx / cols)][idx % cols].mine = true;
+  }
+  computeAdjacency(state);
   state.started = true;
+}
+
+/**
+ * Move the mine at (r,c) to the first available non-mine cell, then recompute
+ * adjacency. Used for first-click safety on pre-generated (versus) boards so a
+ * player can't lose instantly while keeping both boards otherwise identical.
+ */
+export function relocateMine(state: GameState, r: number, c: number): void {
+  const { rows, cols, cells } = state;
+  if (!cells[r][c].mine) return;
+  cells[r][c].mine = false;
+  for (let i = 0; i < rows * cols; i++) {
+    const rr = Math.floor(i / cols);
+    const cc = i % cols;
+    const t = cells[rr][cc];
+    if (!t.mine && !(rr === r && cc === c)) { t.mine = true; break; }
+  }
+  computeAdjacency(state);
 }
 
 /** Populate immediately from a seed (used for versus — identical boards). */
@@ -144,6 +170,13 @@ export function reveal(state: GameState, r: number, c: number, by: PlayerSlotId 
 
   if (!state.started && state.deferMines) {
     populateFromSeed(state, randomSeed(), r * state.cols + c);
+  }
+
+  // Pre-generated boards (versus): guarantee the very first click is safe by
+  // relocating the mine, instead of an instant loss.
+  if (state.relocateFirst && !state.firstRevealDone) {
+    state.firstRevealDone = true;
+    if (cell.mine) relocateMine(state, r, c);
   }
 
   if (cell.mine) {

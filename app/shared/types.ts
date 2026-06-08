@@ -50,12 +50,14 @@ export interface GameState {
   cols: number;
   mines: number;
   cells: Cell[][];
-  started: boolean;       // first cell revealed (mines placed)
-  deferMines: boolean;    // place mines on first reveal (first-click safe)
+  started: boolean;        // first cell revealed (mines placed)
+  deferMines: boolean;     // place mines on first reveal (area first-click safe)
+  relocateFirst: boolean;  // pre-generated board: move a mine if the first click lands on one
+  firstRevealDone: boolean;
   status: GameStatus;
   flags: number;
-  revealed: number;       // count of revealed non-mine cells
-  safeTotal: number;      // total non-mine cells (win when revealed === safeTotal)
+  revealed: number;        // count of revealed non-mine cells
+  safeTotal: number;       // total non-mine cells (win when revealed === safeTotal)
 }
 
 /** A render-safe projection of one cell. Safe to send over the wire. */

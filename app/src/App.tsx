@@ -8,6 +8,7 @@ import { SoloGame } from './screens/SoloGame';
 import { OnlineGame } from './screens/OnlineGame';
 import { useRoom } from './net/useRoom';
 import { MULTIPLAYER_ENABLED } from './net/config';
+import { useAudioUnlock } from './audio/useSound';
 import type { DifficultyId, GameMode } from '../shared/types';
 
 const NAME_KEY = 'buscaminas.name';
@@ -25,6 +26,7 @@ function loadDifficulty(): DifficultyId {
 }
 
 export default function App() {
+  useAudioUnlock();
   const room = useRoom();
   const [name, setName] = useState<string>(loadName);
   const [difficulty, setDifficulty] = useState<DifficultyId>(loadDifficulty);

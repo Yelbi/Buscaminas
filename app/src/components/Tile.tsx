@@ -18,6 +18,7 @@ export interface TileProps {
   onClick?: (e: MouseEvent<HTMLButtonElement>) => void;
   onContextMenu?: (e: MouseEvent<HTMLButtonElement>) => void;
   style?: CSSProperties;
+  className?: string;
 }
 
 /**
@@ -31,6 +32,7 @@ export function Tile({
   onClick,
   onContextMenu,
   style = {},
+  className,
 }: TileProps) {
   const px = { sm: 'var(--tile-sm)', md: 'var(--tile-md)', lg: 'var(--tile-lg)' }[size];
   const ownerColor = owner === 'p1' ? 'var(--player-1)' : owner === 'p2' ? 'var(--player-2)' : null;
@@ -70,6 +72,7 @@ export function Tile({
       type="button"
       onClick={onClick}
       onContextMenu={onContextMenu}
+      className={className}
       aria-label={
         state === 'flagged' ? 'Casilla con bandera'
           : state === 'hidden' ? 'Casilla oculta'

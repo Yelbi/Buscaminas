@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { SoundToggles } from './SoundToggles';
 
 export function AppBar({ onBrandClick, right }: { onBrandClick?: () => void; right?: ReactNode }) {
   return (
@@ -9,6 +10,7 @@ export function AppBar({ onBrandClick, right }: { onBrandClick?: () => void; rig
       </button>
       <span className="app-bar__spacer" />
       {right}
+      <SoundToggles />
     </header>
   );
 }
