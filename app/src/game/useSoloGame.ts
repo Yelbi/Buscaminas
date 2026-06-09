@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   chord as chordFn,
   createState,
+  flagAllMines,
   flagsRemaining,
   projectBoard,
   reveal as revealFn,
@@ -101,9 +102,12 @@ export function useSoloGame(spec: ResolvedSpec, bestKey: string | null): SoloApi
     const total = startRef.current != null ? end - startRef.current : 0;
     setElapsedMs(total);
     if (st.status === 'lost') revealAllMines(st);
-    if (st.status === 'won' && bestKey) {
-      const prev = readBest(bestKey);
-      if (prev == null || total < prev) { writeBest(bestKey, total); setBestMs(total); }
+    if (st.status === 'won') {
+      flagAllMines(st);
+      if (bestKey) {
+        const prev = readBest(bestKey);
+        if (prev == null || total < prev) { writeBest(bestKey, total); setBestMs(total); }
+      }
     }
   }, [bestKey]);
 

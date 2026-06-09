@@ -25,7 +25,9 @@ const TONES: Record<CounterTone, string> = {
  */
 export function Counter({ value = 0, digits = 3, tone = 'cyan', label = null, icon = null, style = {} }: CounterProps) {
   const c = TONES[tone] || TONES.cyan;
-  const text = String(Math.max(0, value)).padStart(digits, '0').slice(-digits);
+  // Zero-pad to `digits`, but never truncate larger values (e.g. custom boards
+  // with >999 mines, or timers past 999s).
+  const text = String(Math.max(0, Math.round(value))).padStart(digits, '0');
 
   return (
     <div className="ds-counter" style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px', ...style }}>

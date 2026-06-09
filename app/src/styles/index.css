@@ -286,6 +286,40 @@ a { color: var(--neon-cyan); }
 }
 .board-win { animation: board-win 1300ms var(--ease-out); }
 
+/* ---- Reconnecting banner ---- */
+.reconnect-banner {
+  position: fixed;
+  left: 50%;
+  top: calc(var(--header-h) + 8px);
+  transform: translateX(-50%);
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  max-width: calc(100vw - 24px);
+  padding: 8px 16px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  border: 1px solid color-mix(in srgb, var(--neon-yellow) 45%, transparent);
+  color: var(--text-hi);
+  font-size: var(--fs-sm);
+  box-shadow: var(--shadow-md);
+}
+
+/* ---- Row that splits on desktop, stacks on mobile ---- */
+.split {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-5);
+}
+.split--center { align-items: center; }
+@media (max-width: 640px) {
+  .split { flex-direction: column; align-items: stretch; gap: var(--sp-4); }
+  .split .seg-wrap { width: 100%; }
+}
+
 /* ---- Leaderboard table ---- */
 .lb-row {
   display: grid;

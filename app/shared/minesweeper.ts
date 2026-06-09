@@ -255,6 +255,18 @@ export function revealAllMines(state: GameState): void {
   }
 }
 
+/** Flag every remaining mine — called on a win so the cleared field shows flags. */
+export function flagAllMines(state: GameState): void {
+  let flags = 0;
+  for (const row of state.cells) {
+    for (const cell of row) {
+      if (cell.mine && !cell.revealed) cell.flagged = true;
+      if (cell.flagged) flags++;
+    }
+  }
+  state.flags = flags;
+}
+
 export function flagsRemaining(state: GameState): number {
   return state.mines - state.flags;
 }

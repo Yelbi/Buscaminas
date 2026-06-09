@@ -33,6 +33,8 @@ export interface GameResult {
   winner: PlayerSlotId | null;
   reason: string;
   timeMs: number;
+  /** True only when the board was genuinely cleared (not a forfeit/mine win). */
+  clear?: boolean;
 }
 
 export interface GameSnapshot {
@@ -59,16 +61,22 @@ export type ClientMsg =
   | { t: 'chord'; r: number; c: number }
   | { t: 'rematch' }
   | { t: 'leave' }
+  | { t: 'rejoin'; code: string; token: string }
   | { t: 'ping' };
 
 /* ---- Server → Client ---- */
 export type ServerMsg =
   | { t: 'error'; message: string; code?: string }
-  | { t: 'joined'; code: string; you: PlayerSlotId; mode: GameMode; difficulty: DifficultyId }
+  | { t: 'joined'; code: string; you: PlayerSlotId; mode: GameMode; difficulty: DifficultyId; token: string }
   | { t: 'room'; room: RoomSnapshot }
   | { t: 'game'; game: GameSnapshot }
   | { t: 'peerLeft'; slot: PlayerSlotId }
   | { t: 'pong' };
+
+/** Opaque per-player reconnect token. */
+export function makeReconnectToken(): string {
+  return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+}
 
 export function encode(msg: ClientMsg | ServerMsg): string {
   return JSON.stringify(msg);

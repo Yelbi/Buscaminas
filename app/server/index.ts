@@ -81,7 +81,7 @@ function handle(ws: WebSocket, msg: ClientMsg): void {
       if (!player) return err(ws, 'No se pudo crear la sala.');
       rooms.set(code, newRoom);
       ctxOf.set(ws, { code, slot: player.slot });
-      send(ws, { t: 'joined', code, you: player.slot, mode: newRoom.mode, difficulty: newRoom.difficulty });
+      send(ws, { t: 'joined', code, you: player.slot, mode: newRoom.mode, difficulty: newRoom.difficulty, token: player.token });
       broadcastRoom(newRoom);
       return;
     }
@@ -95,8 +95,27 @@ function handle(ws: WebSocket, msg: ClientMsg): void {
       const player = target.addPlayer(ws, cleanName(msg.name));
       if (!player) return err(ws, 'La sala está llena.', 'FULL');
       ctxOf.set(ws, { code, slot: player.slot });
-      send(ws, { t: 'joined', code, you: player.slot, mode: target.mode, difficulty: target.difficulty });
+      send(ws, { t: 'joined', code, you: player.slot, mode: target.mode, difficulty: target.difficulty, token: player.token });
       broadcastRoom(target);
+      return;
+    }
+
+    case 'rejoin': {
+      const code = String(msg.code ?? '').trim().toUpperCase();
+      const target = rooms.get(code);
+      if (!target) return err(ws, 'La sala ya no existe.', 'NO_ROOM');
+      const player = target.playerByToken(String(msg.token ?? ''));
+      if (!player) return err(ws, 'No se pudo reconectar a la sala.', 'NO_REJOIN');
+      // Detach any previous socket for this slot, then attach the new one.
+      const oldWs = player.ws;
+      if (oldWs && oldWs !== ws) { ctxOf.delete(oldWs); try { oldWs.close(); } catch { /* ignore */ } }
+      if (player.graceTimer) { clearTimeout(player.graceTimer); player.graceTimer = null; }
+      player.ws = ws;
+      player.connected = true;
+      ctxOf.set(ws, { code, slot: player.slot });
+      send(ws, { t: 'joined', code, you: player.slot, mode: target.mode, difficulty: target.difficulty, token: player.token });
+      broadcastRoom(target);
+      if (target.phase !== 'lobby') send(ws, { t: 'game', game: target.gameSnapshot(player.slot) });
       return;
     }
 
@@ -123,7 +142,7 @@ function handle(ws: WebSocket, msg: ClientMsg): void {
       if (!room || !ctx) return;
       if (room.applyReveal(ctx.slot, msg.r, msg.c, msg.t)) {
         broadcastGame(room);
-        if (room.phase === 'finished') broadcastRoom(room);
+        if (room.phase === 'finished') { broadcastRoom(room); maybeSubmitVersusScore(room); }
       }
       return;
     }
@@ -153,32 +172,66 @@ function handle(ws: WebSocket, msg: ClientMsg): void {
   }
 }
 
-function dropConnection(ws: WebSocket, closing: boolean): void {
-  const ctx = ctxOf.get(ws);
-  ctxOf.delete(ws);
-  if (!ctx) return;
-  const room = rooms.get(ctx.code);
-  if (!room) return;
+const GRACE_MS = 25_000; // window to reconnect after an unexpected disconnect
 
+/** Versus winner's clear time goes to the global leaderboard (preset boards only). */
+function maybeSubmitVersusScore(room: Room): void {
+  if (room.mode !== 'versus' || !room.result || !room.result.clear) return;
+  const winner = room.result.winner;
+  if (!winner) return;
+  const d = room.difficulty;
+  if (!isPreset(d) || !leaderboardEnabled()) return;
+  const p = room.players.get(winner);
+  if (!p) return;
+  void submitScore(d, p.name, room.result.timeMs);
+}
+
+/** Actually remove a player (forfeit if mid-game), promote host, delete empty room. */
+function removeNow(room: Room, slot: PlayerSlotId): void {
   const wasPlaying = room.phase === 'playing';
-  if (wasPlaying) room.forfeit(ctx.slot);
-  room.removePlayer(ctx.slot);
+  if (wasPlaying) room.forfeit(slot);
+  room.removePlayer(slot);
 
   if (room.isEmpty()) {
     room.stopTick();
     rooms.delete(room.code);
   } else {
     for (const p of room.players.values()) {
-      if (p.connected) send(p.ws, { t: 'peerLeft', slot: ctx.slot });
+      if (p.connected) send(p.ws, { t: 'peerLeft', slot });
     }
     broadcastRoom(room);
     if (wasPlaying) broadcastGame(room);
   }
+}
 
-  if (!closing && ws.readyState === ws.OPEN) {
-    // Explicit leave: free the client to return to the menu.
-    send(ws, { t: 'room', room: { code: '', mode: room.mode, difficulty: room.difficulty, phase: 'lobby', hostSlot: 'p1', players: [] } });
+function dropConnection(ws: WebSocket, closing: boolean): void {
+  const ctx = ctxOf.get(ws);
+  ctxOf.delete(ws);
+  if (!ctx) return;
+  const room = rooms.get(ctx.code);
+  if (!room) return;
+  const player = room.players.get(ctx.slot);
+  if (!player || player.ws !== ws) return; // a newer socket already took this slot
+
+  if (!closing) {
+    // Explicit "leave": remove immediately and free this client.
+    removeNow(room, ctx.slot);
+    if (ws.readyState === ws.OPEN) {
+      send(ws, { t: 'room', room: { code: '', mode: room.mode, difficulty: room.difficulty, phase: 'lobby', hostSlot: 'p1', players: [] } });
+    }
+    return;
   }
+
+  // Unexpected close: hold the slot for a grace window so the player can reconnect.
+  player.connected = false;
+  if (player.graceTimer) clearTimeout(player.graceTimer);
+  player.graceTimer = setTimeout(() => {
+    player.graceTimer = null;
+    const r = rooms.get(ctx.code);
+    const p = r?.players.get(ctx.slot);
+    if (r && p && !p.connected) removeNow(r, ctx.slot);
+  }, GRACE_MS);
+  broadcastRoom(room); // peers see "Desconectado"
 }
 
 /* ---- HTTP: health + leaderboard REST API ---- */
@@ -199,7 +252,7 @@ function errReason(e: unknown): string {
   return String((e instanceof Error ? e.message : e) ?? 'error').slice(0, 200);
 }
 
-// Simple in-memory rate limiter: max N requests per window per IP.
+// Simple in-memory rate limiter: max N requests per window per IP. Pruned periodically.
 const rl = new Map<string, number[]>();
 function rateLimited(ip: string, max = 40, windowMs = 60_000): boolean {
   const now = Date.now();
@@ -208,6 +261,13 @@ function rateLimited(ip: string, max = 40, windowMs = 60_000): boolean {
   rl.set(ip, hits);
   return hits.length > max;
 }
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, hits] of rl) {
+    const fresh = hits.filter((t) => now - t < 60_000);
+    if (fresh.length) rl.set(ip, fresh); else rl.delete(ip);
+  }
+}, 5 * 60_000).unref?.();
 
 function readBody(req: IncomingMessage, limit = 4096): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -288,7 +348,12 @@ const wss = new WebSocketServer({
     : undefined,
 });
 
+// Heartbeat: detect half-open sockets and terminate them (→ close → grace).
+const alive = new WeakMap<WebSocket, boolean>();
+
 wss.on('connection', (ws: WebSocket) => {
+  alive.set(ws, true);
+  ws.on('pong', () => alive.set(ws, true));
   ws.on('message', (data) => {
     const msg = decode<ClientMsg>(data.toString());
     if (!msg || typeof msg.t !== 'string') return;
@@ -302,6 +367,15 @@ wss.on('connection', (ws: WebSocket) => {
   ws.on('close', () => dropConnection(ws, true));
   ws.on('error', () => dropConnection(ws, true));
 });
+
+const heartbeat = setInterval(() => {
+  for (const ws of wss.clients) {
+    if (alive.get(ws) === false) { ws.terminate(); continue; }
+    alive.set(ws, false);
+    try { ws.ping(); } catch { /* ignore */ }
+  }
+}, 30_000);
+wss.on('close', () => clearInterval(heartbeat));
 
 httpServer.listen(PORT, () => {
   console.log(`[buscaminas] servidor de juego en ws://localhost:${PORT}`);

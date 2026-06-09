@@ -81,7 +81,8 @@ export default function App() {
   // Connection badge for the app bar
   const online = pendingOnline || !!room.room;
   const connBadge = online ? (
-    room.status === 'open' ? <Badge tone="lime" dot>En línea</Badge>
+    room.reconnecting ? <Badge tone="yellow" dot>Reconectando…</Badge>
+      : room.status === 'open' ? <Badge tone="lime" dot>En línea</Badge>
       : room.status === 'connecting' ? <Badge tone="yellow" dot>Conectando…</Badge>
       : <Badge tone="red" dot>Sin conexión</Badge>
   ) : null;
@@ -149,6 +150,12 @@ export default function App() {
     <div className="app-shell">
       <AppBar onBrandClick={goMenu} right={connBadge} />
       <main className="app-main">{screen}</main>
+      {room.reconnecting && (
+        <div className="reconnect-banner" role="status">
+          <span className="blink" style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--neon-yellow)', boxShadow: '0 0 8px var(--neon-yellow)' }} />
+          Reconectando con la sala…
+        </div>
+      )}
       {room.notice && <Toast message={room.notice} onDismiss={room.clearError} />}
       {!pendingOnline && room.error && <Toast message={room.error} onDismiss={room.clearError} />}
     </div>

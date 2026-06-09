@@ -7,6 +7,7 @@
 import type { WebSocket } from 'ws';
 import {
   createState,
+  flagAllMines,
   flagsRemaining,
   projectBoard,
   populateFromSeed,
@@ -19,6 +20,7 @@ import {
 } from '../shared/minesweeper';
 import { resolveSpec } from '../shared/types';
 import type { BoardSpec, DifficultyId, GameMode, GameState, PlayerSlotId, ResolvedSpec } from '../shared/types';
+import { makeReconnectToken } from '../shared/protocol';
 import type { GameResult, GameSnapshot, PlayerInfo, RoomSnapshot } from '../shared/protocol';
 
 export interface Player {
@@ -30,6 +32,8 @@ export interface Player {
   isHost: boolean;
   score: number;
   wantsRematch: boolean;
+  token: string;                                    // secret for reconnecting
+  graceTimer: ReturnType<typeof setTimeout> | null; // pending removal after disconnect
 }
 
 const SLOTS: PlayerSlotId[] = ['p1', 'p2'];
@@ -78,19 +82,32 @@ export class Room {
     const isHost = this.players.size === 0;
     const player: Player = {
       ws, slot, name: name || (slot === 'p1' ? 'Jugador 1' : 'Jugador 2'),
-      connected: true, ready: isHost ? false : false, isHost, score: 0, wantsRematch: false,
+      connected: true, ready: false, isHost, score: 0, wantsRematch: false,
+      token: makeReconnectToken(), graceTimer: null,
     };
     this.players.set(slot, player);
     return player;
   }
 
   removePlayer(slot: PlayerSlotId): void {
+    const p = this.players.get(slot);
+    if (p?.graceTimer) clearTimeout(p.graceTimer);
     this.players.delete(slot);
     // Promote a new host if needed.
     if (![...this.players.values()].some((p) => p.isHost)) {
       const next = this.players.values().next().value as Player | undefined;
       if (next) next.isHost = true;
     }
+  }
+
+  playerByToken(token: string): Player | null {
+    if (!token) return null;
+    for (const p of this.players.values()) if (p.token === token) return p;
+    return null;
+  }
+
+  hasDisconnected(): boolean {
+    return [...this.players.values()].some((p) => !p.connected);
   }
 
   bothPlayersPresent(): boolean {
@@ -212,15 +229,19 @@ export class Room {
 
   private onBoardWon(winner: PlayerSlotId): void {
     if (this.mode === 'coop') {
+      if (this.shared) flagAllMines(this.shared);
       this.finish({
         outcome: 'win',
         winner: null,
         reason: '¡Campo despejado en equipo!',
         timeMs: Date.now() - this.startedAt,
+        clear: true,
       });
       return;
     }
-    // Versus: mark the loser and reveal both boards.
+    // Versus: flag the winner's cleared board; mark + reveal the loser's.
+    const winBoard = this.boards.get(winner);
+    if (winBoard) flagAllMines(winBoard);
     for (const [slot, st] of this.boards) {
       if (slot !== winner && st.status === 'playing') { st.status = 'lost'; revealAllMines(st); }
     }
@@ -229,6 +250,7 @@ export class Room {
       winner,
       reason: 'Tablero despejado primero.',
       timeMs: Date.now() - this.startedAt,
+      clear: true,
     });
   }
 

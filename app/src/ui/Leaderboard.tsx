@@ -51,12 +51,12 @@ export function Leaderboard({ playerName }: { playerName?: string }) {
 
   return (
     <div className="panel stack" style={{ gap: 'var(--sp-4)' }}>
-      <div className="row wrap" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 'var(--sp-3)' }}>
+      <div className="split split--center">
         <div>
           <p className="section-label" style={{ margin: 0 }}>Clasificación global</p>
           <span style={{ color: 'var(--text-dim)', fontSize: 'var(--fs-sm)' }}>Mejores tiempos de todos los jugadores.</span>
         </div>
-        <div className="row" style={{ gap: 'var(--sp-2)' }}>
+        <div className="row seg-wrap" style={{ gap: 'var(--sp-2)' }}>
           <Segmented options={diffOptions} value={difficulty} onChange={(v) => setDifficulty(v as PresetId)} style={{ flexWrap: 'wrap', maxWidth: '100%' }} />
           <Button variant="ghost" size="sm" onClick={() => setNonce((n) => n + 1)} aria-label="Actualizar">↻</Button>
         </div>

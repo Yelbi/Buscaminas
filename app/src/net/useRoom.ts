@@ -8,6 +8,7 @@ export type ConnStatus = 'idle' | 'connecting' | 'open' | 'closed';
 
 export interface RoomState {
   status: ConnStatus;
+  reconnecting: boolean;
   you: PlayerSlotId | null;
   room: RoomSnapshot | null;
   game: GameSnapshot | null;
@@ -28,17 +29,22 @@ export interface RoomApi extends RoomState {
   clearError: () => void;
 }
 
+const IDLE: RoomState = { status: 'idle', reconnecting: false, you: null, room: null, game: null, error: null, notice: null };
+const MAX_RECONNECTS = 8;
+
 export function useRoom(): RoomApi {
-  const [state, setState] = useState<RoomState>({
-    status: 'idle', you: null, room: null, game: null, error: null, notice: null,
-  });
+  const [state, setState] = useState<RoomState>(IDLE);
 
   const wsRef = useRef<WebSocket | null>(null);
   const queueRef = useRef<ClientMsg[]>([]);
+  const tokenRef = useRef<string | null>(null);
+  const codeRef = useRef<string | null>(null);
+  const leavingRef = useRef(false);
+  const attemptsRef = useRef(0);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const connectRef = useRef<(rejoin: boolean) => void>(() => {});
 
-  const patch = useCallback((p: Partial<RoomState>) => {
-    setState((s) => ({ ...s, ...p }));
-  }, []);
+  const patch = useCallback((p: Partial<RoomState>) => setState((s) => ({ ...s, ...p })), []);
 
   const flush = useCallback(() => {
     const ws = wsRef.current;
@@ -52,12 +58,15 @@ export function useRoom(): RoomApi {
     if (!msg) return;
     switch (msg.t) {
       case 'joined':
-        patch({ you: msg.you, error: null });
+        tokenRef.current = msg.token;
+        codeRef.current = msg.code;
+        attemptsRef.current = 0;
+        patch({ you: msg.you, error: null, reconnecting: false });
         break;
       case 'room':
-        // An empty code is the server confirming we left the room.
         if (!msg.room.code) {
-          patch({ room: null, game: null, you: null });
+          tokenRef.current = null; codeRef.current = null;
+          patch({ room: null, game: null, you: null, reconnecting: false });
         } else {
           patch({ room: msg.room });
         }
@@ -66,7 +75,12 @@ export function useRoom(): RoomApi {
         patch({ game: msg.game });
         break;
       case 'error':
-        patch({ error: msg.message });
+        if (msg.code === 'NO_REJOIN' || msg.code === 'NO_ROOM') {
+          tokenRef.current = null; codeRef.current = null;
+          patch({ room: null, game: null, you: null, reconnecting: false, error: msg.message });
+        } else {
+          patch({ error: msg.message });
+        }
         break;
       case 'peerLeft':
         patch({ notice: 'El otro jugador salió de la sala.' });
@@ -76,35 +90,61 @@ export function useRoom(): RoomApi {
     }
   }, [patch]);
 
-  const ensureSocket = useCallback(() => {
-    const existing = wsRef.current;
-    if (existing && (existing.readyState === WebSocket.OPEN || existing.readyState === WebSocket.CONNECTING)) return;
+  const onClose = useCallback(() => {
+    patch({ status: 'closed' });
+    if (leavingRef.current || !tokenRef.current || !codeRef.current) return; // not in a room / intentional
+    attemptsRef.current += 1;
+    if (attemptsRef.current > MAX_RECONNECTS) {
+      patch({ reconnecting: false, error: 'Se perdió la conexión con la sala.' });
+      return;
+    }
+    patch({ reconnecting: true });
+    const delay = Math.min(8000, 500 * 2 ** (attemptsRef.current - 1));
+    reconnectTimerRef.current = setTimeout(() => connectRef.current(true), delay);
+  }, [patch]);
 
+  const connect = useCallback((rejoin: boolean) => {
+    if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
     patch({ status: 'connecting', error: null });
     const ws = new WebSocket(wsUrl());
     wsRef.current = ws;
-    ws.onopen = () => { patch({ status: 'open' }); flush(); };
+    ws.onopen = () => {
+      patch({ status: 'open' });
+      if (rejoin && tokenRef.current && codeRef.current) {
+        ws.send(encode({ t: 'rejoin', code: codeRef.current, token: tokenRef.current }));
+      } else {
+        attemptsRef.current = 0;
+        patch({ reconnecting: false });
+      }
+      flush();
+    };
     ws.onmessage = (e) => onMessage(typeof e.data === 'string' ? e.data : '');
-    ws.onclose = () => { patch({ status: 'closed' }); };
-    ws.onerror = () => { patch({ error: 'No se pudo conectar con el servidor de juego.' }); };
-  }, [patch, flush, onMessage]);
+    ws.onclose = () => onClose();
+    ws.onerror = () => { /* surfaced via onclose */ };
+  }, [patch, flush, onMessage, onClose]);
+
+  useEffect(() => { connectRef.current = connect; }, [connect]);
+
+  const ensureSocket = useCallback(() => {
+    const ws = wsRef.current;
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+    connect(false);
+  }, [connect]);
 
   const send = useCallback((m: ClientMsg) => {
     const ws = wsRef.current;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(encode(m));
-    } else {
-      queueRef.current.push(m);
-      ensureSocket();
-    }
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(encode(m));
+    else { queueRef.current.push(m); ensureSocket(); }
   }, [ensureSocket]);
 
   const createRoom = useCallback((mode: GameMode, difficulty: DifficultyId, name: string, custom?: BoardSpec) => {
+    leavingRef.current = false;
     ensureSocket();
     send({ t: 'create', mode, difficulty, name, custom });
   }, [ensureSocket, send]);
 
   const joinRoom = useCallback((code: string, name: string) => {
+    leavingRef.current = false;
     ensureSocket();
     send({ t: 'join', code: code.trim().toUpperCase(), name });
   }, [ensureSocket, send]);
@@ -117,18 +157,23 @@ export function useRoom(): RoomApi {
   const rematch = useCallback(() => send({ t: 'rematch' }), [send]);
 
   const leave = useCallback(() => {
+    leavingRef.current = true;
+    if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
+    tokenRef.current = null; codeRef.current = null; attemptsRef.current = 0;
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(encode({ t: 'leave' }));
     queueRef.current = [];
     if (ws) { ws.onclose = null; ws.close(); }
     wsRef.current = null;
-    setState({ status: 'idle', you: null, room: null, game: null, error: null, notice: null });
+    setState(IDLE);
+    setTimeout(() => { leavingRef.current = false; }, 0);
   }, []);
 
   const clearError = useCallback(() => patch({ error: null, notice: null }), [patch]);
 
   // Tear down on unmount.
   useEffect(() => () => {
+    if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
     const ws = wsRef.current;
     if (ws) { ws.onclose = null; ws.close(); }
   }, []);

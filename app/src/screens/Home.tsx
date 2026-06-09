@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Badge, Button, Input, ModeCard, Segmented } from '../components';
 import { Leaderboard } from '../ui/Leaderboard';
+import { HowToPlay } from '../ui/HowToPlay';
 import { CUSTOM_LIMITS, DIFFICULTY_ORDER, DIFFICULTIES, resolveSpec } from '../../shared/types';
 import type { BoardSpec, DifficultyId, GameMode } from '../../shared/types';
 
@@ -47,19 +48,20 @@ export function Home({
       <div className="hero">
         <h1 className="hero__title">Busca<span className="accent">minas</span></h1>
         <p className="hero__sub">Despeja el campo sin pisar una mina. Juega en solitario, en equipo o reta a un rival en tiempo real.</p>
+        <HowToPlay />
       </div>
 
       {/* Shared settings */}
       <div className="panel stack" style={{ gap: 'var(--sp-5)' }}>
-        <div className="row wrap" style={{ justifyContent: 'space-between', alignItems: 'flex-end', gap: 'var(--sp-5)' }}>
+        <div className="split">
           <Input
             label="Tu nombre"
             value={name}
             maxLength={20}
             onChange={(e) => onName(e.target.value)}
-            style={{ minWidth: 220, flex: '1 1 240px' }}
+            style={{ minWidth: 200, flex: '1 1 240px' }}
           />
-          <div className="stack" style={{ gap: 'var(--sp-2)' }}>
+          <div className="stack seg-wrap" style={{ gap: 'var(--sp-2)' }}>
             <span className="section-label" style={{ margin: 0 }}>Dificultad</span>
             <Segmented
               options={diffOptions}
@@ -71,28 +73,30 @@ export function Home({
         </div>
 
         {difficulty === 'custom' && (
-          <div className="row wrap" style={{ gap: 'var(--sp-3)', alignItems: 'flex-end' }}>
-            <Input
-              label="Filas" type="number" inputMode="numeric"
-              min={CUSTOM_LIMITS.minRows} max={CUSTOM_LIMITS.maxRows}
-              value={String(custom.rows)}
-              onChange={(e) => onCustom({ ...custom, rows: toInt(e.target.value, custom.rows) })}
-              style={{ width: 110 }}
-            />
-            <Input
-              label="Columnas" type="number" inputMode="numeric"
-              min={CUSTOM_LIMITS.minCols} max={CUSTOM_LIMITS.maxCols}
-              value={String(custom.cols)}
-              onChange={(e) => onCustom({ ...custom, cols: toInt(e.target.value, custom.cols) })}
-              style={{ width: 110 }}
-            />
-            <Input
-              label="Minas" type="number" inputMode="numeric"
-              min={CUSTOM_LIMITS.minMines} max={maxMines}
-              value={String(custom.mines)}
-              onChange={(e) => onCustom({ ...custom, mines: toInt(e.target.value, custom.mines) })}
-              style={{ width: 110 }}
-            />
+          <div className="stack" style={{ gap: 'var(--sp-2)' }}>
+            <div className="row wrap" style={{ gap: 'var(--sp-3)', alignItems: 'flex-end' }}>
+              <Input
+                label="Filas" type="number" inputMode="numeric"
+                min={CUSTOM_LIMITS.minRows} max={CUSTOM_LIMITS.maxRows}
+                value={String(custom.rows)}
+                onChange={(e) => onCustom({ ...custom, rows: toInt(e.target.value, custom.rows) })}
+                style={{ flex: '1 1 90px', minWidth: 0 }}
+              />
+              <Input
+                label="Columnas" type="number" inputMode="numeric"
+                min={CUSTOM_LIMITS.minCols} max={CUSTOM_LIMITS.maxCols}
+                value={String(custom.cols)}
+                onChange={(e) => onCustom({ ...custom, cols: toInt(e.target.value, custom.cols) })}
+                style={{ flex: '1 1 90px', minWidth: 0 }}
+              />
+              <Input
+                label="Minas" type="number" inputMode="numeric"
+                min={CUSTOM_LIMITS.minMines} max={maxMines}
+                value={String(custom.mines)}
+                onChange={(e) => onCustom({ ...custom, mines: toInt(e.target.value, custom.mines) })}
+                style={{ flex: '1 1 90px', minWidth: 0 }}
+              />
+            </div>
             <span style={{ color: 'var(--text-dim)', fontSize: 'var(--fs-sm)' }}>
               {CUSTOM_LIMITS.minRows}–{CUSTOM_LIMITS.maxRows} filas · {CUSTOM_LIMITS.minCols}–{CUSTOM_LIMITS.maxCols} columnas · máx {maxMines} minas
             </span>
