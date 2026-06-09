@@ -194,6 +194,11 @@ function json(res: ServerResponse, status: number, body: unknown): void {
   res.end(JSON.stringify(body));
 }
 
+/** Short, safe error reason for debugging (no token leakage). */
+function errReason(e: unknown): string {
+  return String((e instanceof Error ? e.message : e) ?? 'error').slice(0, 200);
+}
+
 // Simple in-memory rate limiter: max N requests per window per IP.
 const rl = new Map<string, number[]>();
 function rateLimited(ip: string, max = 40, windowMs = 60_000): boolean {
@@ -237,7 +242,7 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse): Promise<vo
       return json(res, 200, { enabled: true, difficulty, entries });
     } catch (e) {
       console.error('leaderboard get', e);
-      return json(res, 502, { enabled: true, error: 'No se pudo leer la clasificación.' });
+      return json(res, 502, { enabled: true, error: 'No se pudo leer la clasificación.', reason: errReason(e) });
     }
   }
 
@@ -251,7 +256,7 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse): Promise<vo
       return json(res, 200, { enabled: true, ...result });
     } catch (e) {
       console.error('leaderboard submit', e);
-      return json(res, 502, { ok: false, error: 'No se pudo guardar la puntuación.' });
+      return json(res, 502, { ok: false, error: 'No se pudo guardar la puntuación.', reason: errReason(e) });
     }
   }
 
