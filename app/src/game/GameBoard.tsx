@@ -73,10 +73,12 @@ export function GameBoard({
   const addTimer = (fn: () => void, ms: number) => { timersRef.current.push(setTimeout(fn, ms)); };
   const clearTimers = () => { timersRef.current.forEach(clearTimeout); timersRef.current = []; };
 
-  const pushAnim = (key: string, type: AnimType, delay = 0) => {
+  const pushAnim = (key: string, type: AnimType, delay = 0, cleanup = true) => {
     const id = ++idRef.current;
     setAnims((p) => ({ ...p, [key]: { type, id, delay } }));
-    addTimer(() => setAnims((p) => { const n = { ...p }; delete n[key]; return n; }), 600 + delay * 1000);
+    // Cascade explosions skip per-cell cleanup (board is frozen until reset),
+    // which avoids scheduling thousands of timers on huge custom boards.
+    if (cleanup) addTimer(() => setAnims((p) => { const n = { ...p }; delete n[key]; return n; }), 600 + delay * 1000);
   };
 
   // Reset everything when a new game/match starts.
@@ -159,16 +161,26 @@ export function GameBoard({
     if (exploded) pushAnim(`${exploded[0]}-${exploded[1]}`, 'explodeBig');
     setSeqStep(0);
 
-    const dt = Math.min(80, Math.max(16, Math.round(1700 / Math.max(1, mines.length))));
-    const soundEvery = Math.max(1, Math.ceil(mines.length / 14));
-    mines.forEach(([r, c], i) => {
-      addTimer(() => {
-        pushAnim(`${r}-${c}`, 'explode');
-        if (i % soundEvery === 0) audio.play('explode');
-        setSeqStep(i + 1);
-      }, 220 + i * dt);
-    });
-    addTimer(() => onSequenceDone?.(), 220 + mines.length * dt + 750);
+    // Detonate in capped batches: total time stays ~≤2.2s and the number of
+    // timers stays bounded regardless of how many mines the board has.
+    const total = mines.length;
+    const SPAN = Math.min(2200, Math.max(700, total * 16));
+    const TICK = 33;
+    const ticks = Math.max(1, Math.ceil(SPAN / TICK));
+    const perTick = Math.max(1, Math.ceil(total / ticks));
+    let i = 0;
+    const interval = setInterval(() => {
+      const start = i;
+      const end = Math.min(total, i + perTick);
+      for (; i < end; i++) pushAnim(`${mines[i][0]}-${mines[i][1]}`, 'explode', 0, false);
+      if (end > start) audio.play('explode');
+      setSeqStep(i);
+      if (i >= total) {
+        clearInterval(interval);
+        addTimer(() => onSequenceDone?.(), 700);
+      }
+    }, TICK);
+    timersRef.current.push(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished, outcome, gameKey]);
 

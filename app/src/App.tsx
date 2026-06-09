@@ -48,6 +48,18 @@ export default function App() {
   useEffect(() => { try { localStorage.setItem(DIFF_KEY, difficulty); } catch { /* ignore */ } }, [difficulty]);
   useEffect(() => { try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(custom)); } catch { /* ignore */ } }, [custom]);
 
+  // Disable the browser's right-click context menu (right-click = place flag).
+  // Still allowed inside text fields so paste/spellcheck keep working.
+  useEffect(() => {
+    const onCtx = (e: MouseEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && t.closest('input, textarea, [contenteditable="true"]')) return;
+      e.preventDefault();
+    };
+    document.addEventListener('contextmenu', onCtx);
+    return () => document.removeEventListener('contextmenu', onCtx);
+  }, []);
+
   const goMenu = useCallback(() => {
     room.leave();
     setPendingOnline(false);
