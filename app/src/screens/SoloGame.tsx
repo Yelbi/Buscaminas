@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Badge } from '../components';
 import type { BadgeTone } from '../components';
 import { Hud } from '../ui/Hud';
@@ -13,19 +13,39 @@ import type { BoardSpec, DifficultyId } from '../../shared/types';
 
 const DIFF_TONE: Record<DifficultyId, BadgeTone> = { facil: 'lime', medio: 'yellow', dificil: 'red', custom: 'purple' };
 
-export function SoloGame({ difficulty, custom, onMenu }: { difficulty: DifficultyId; custom?: BoardSpec; onMenu: () => void }) {
+export function SoloGame({
+  difficulty,
+  custom,
+  onMenu,
+  onWin,
+}: {
+  difficulty: DifficultyId;
+  custom?: BoardSpec;
+  onMenu: () => void;
+  /** Called once with the final time when a preset game is won (for the leaderboard). */
+  onWin?: (timeMs: number) => void;
+}) {
   const cfg = resolveSpec(difficulty, custom);
   const game = useSoloGame(cfg, difficulty === 'custom' ? null : difficulty);
   const [flagMode, setFlagMode] = useState(false);
   const [seqDone, setSeqDone] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const submittedRef = useRef(false);
 
   const handlers = boardHandlers(game.board, flagMode, game);
   const playing = game.status === 'playing';
   const outcome = game.status === 'won' ? 'win' : game.status === 'lost' ? 'lose' : null;
 
   // New round → clear result gating.
-  useEffect(() => { setSeqDone(false); setDismissed(false); }, [game.round]);
+  useEffect(() => { setSeqDone(false); setDismissed(false); submittedRef.current = false; }, [game.round]);
+
+  // Submit the time to the leaderboard once, when the game is won.
+  useEffect(() => {
+    if (game.status === 'won' && !submittedRef.current) {
+      submittedRef.current = true;
+      onWin?.(game.elapsedMs);
+    }
+  }, [game.status, game.elapsedMs, onWin]);
 
   return (
     <div className="board-stage pop-in">

@@ -9,8 +9,9 @@ import { OnlineGame } from './screens/OnlineGame';
 import { useRoom } from './net/useRoom';
 import { MULTIPLAYER_ENABLED } from './net/config';
 import { useAudioUnlock } from './audio/useSound';
+import { submitScore } from './net/leaderboard';
 import { DEFAULT_CUSTOM, clampCustom } from '../shared/types';
-import type { BoardSpec, DifficultyId, GameMode } from '../shared/types';
+import type { BoardSpec, DifficultyId, GameMode, PresetId } from '../shared/types';
 
 const NAME_KEY = 'buscaminas.name';
 const DIFF_KEY = 'buscaminas.difficulty';
@@ -106,7 +107,14 @@ export default function App() {
       />
     );
   } else if (view === 'solo') {
-    screen = <SoloGame difficulty={difficulty} custom={custom} onMenu={goMenu} />;
+    screen = (
+      <SoloGame
+        difficulty={difficulty}
+        custom={custom}
+        onMenu={goMenu}
+        onWin={difficulty === 'custom' ? undefined : (timeMs) => { void submitScore(difficulty as PresetId, name || 'Jugador', timeMs); }}
+      />
+    );
   } else {
     screen = (
       <Home

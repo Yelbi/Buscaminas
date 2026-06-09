@@ -286,6 +286,30 @@ a { color: var(--neon-cyan); }
 }
 .board-win { animation: board-win 1300ms var(--ease-out); }
 
+/* ---- Leaderboard table ---- */
+.lb-row {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.lb-row:last-child { border-bottom: none; }
+.lb-head {
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-mid);
+  border-bottom: 1px solid var(--line);
+}
+.lb-row--me {
+  background: color-mix(in srgb, var(--neon-cyan) 9%, transparent);
+  border-radius: var(--r-sm);
+  border-bottom-color: transparent;
+}
+
 /* Touch ergonomics: no text selection / long-press callout / tap flash on the board */
 .game-board {
   user-select: none;

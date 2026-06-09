@@ -78,6 +78,33 @@ Cuando ya conozcas la URL de Vercel:
 
 ---
 
+## 5) Tabla de clasificación global (Upstash Redis)
+
+El leaderboard del menú necesita una base de datos persistente (Render free no
+guarda datos). Usamos **Upstash Redis** (free, sin tarjeta):
+
+1. Crea cuenta en https://upstash.com → **Create Database** (Redis). Elige una
+   región cercana; el plan **Free** sirve.
+2. En la página de la base de datos, sección **REST API**, copia:
+   - `UPSTASH_REDIS_REST_URL`
+   - `UPSTASH_REDIS_REST_TOKEN`
+3. En Render → servicio **buscaminas-ws** → **Environment** → añade esas **dos**
+   variables con esos nombres y valores → **Save** (Render redepliega).
+4. Listo: la **Clasificación global** aparece en el menú y guarda el mejor tiempo
+   de cada jugador por dificultad (Fácil/Medio/Difícil).
+
+> Sin esas variables, el servidor responde `enabled:false` y el menú muestra
+> "La clasificación global aún no está configurada". El resto del juego funciona igual.
+>
+> El leaderboard se sirve por HTTP desde el mismo servidor de Render, así que también
+> necesita que `VITE_WS_URL` esté puesta en Vercel (paso 3). Es un ranking por honor
+> (sin login): se queda el **mejor tiempo por nombre** en cada dificultad.
+
+Para probarlo en local: arranca el server con las variables, p. ej.
+`UPSTASH_REDIS_REST_URL=... UPSTASH_REDIS_REST_TOKEN=... npm run dev:server`.
+
+---
+
 ## Probar el multijugador
 
 Abre tu URL de Vercel en **dos** pestañas → crea sala en una (Cooperativo o

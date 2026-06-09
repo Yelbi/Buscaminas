@@ -6,6 +6,7 @@
    ============================================================ */
 
 import { createServer } from 'node:http';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { WebSocketServer } from 'ws';
 import type { WebSocket } from 'ws';
 import { Room } from './room';
@@ -13,6 +14,7 @@ import { decode, encode, makeRoomCode } from '../shared/protocol';
 import type { ClientMsg, ServerMsg } from '../shared/protocol';
 import type { PlayerSlotId } from '../shared/types';
 import { DIFFICULTIES } from '../shared/types';
+import { getTop, isPreset, leaderboardEnabled, submitScore } from './leaderboard';
 
 const PORT = Number(process.env.PORT) || 8787;
 const MAX_NAME = 20;
@@ -179,14 +181,90 @@ function dropConnection(ws: WebSocket, closing: boolean): void {
   }
 }
 
-const httpServer = createServer((req, res) => {
-  if (req.url === '/health' || req.url === '/') {
-    res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ ok: true, rooms: rooms.size }));
-    return;
+/* ---- HTTP: health + leaderboard REST API ---- */
+
+function cors(res: ServerResponse): void {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+}
+function json(res: ServerResponse, status: number, body: unknown): void {
+  cors(res);
+  res.writeHead(status, { 'content-type': 'application/json' });
+  res.end(JSON.stringify(body));
+}
+
+// Simple in-memory rate limiter: max N requests per window per IP.
+const rl = new Map<string, number[]>();
+function rateLimited(ip: string, max = 40, windowMs = 60_000): boolean {
+  const now = Date.now();
+  const hits = (rl.get(ip) || []).filter((t) => now - t < windowMs);
+  hits.push(now);
+  rl.set(ip, hits);
+  return hits.length > max;
+}
+
+function readBody(req: IncomingMessage, limit = 4096): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    req.on('data', (chunk) => {
+      data += chunk;
+      if (data.length > limit) reject(new Error('payload too large'));
+    });
+    req.on('end', () => resolve(data));
+    req.on('error', reject);
+  });
+}
+
+async function handleHttp(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const url = new URL(req.url || '/', 'http://localhost');
+  const ip = (req.headers['x-forwarded-for']?.toString().split(',')[0].trim()) || req.socket.remoteAddress || 'unknown';
+
+  if (req.method === 'OPTIONS') { cors(res); res.writeHead(204); res.end(); return; }
+
+  if (url.pathname === '/health' || url.pathname === '/') {
+    return json(res, 200, { ok: true, rooms: rooms.size, leaderboard: leaderboardEnabled() });
   }
+
+  if (url.pathname === '/api/leaderboard' && req.method === 'GET') {
+    if (rateLimited(ip)) return json(res, 429, { error: 'Demasiadas peticiones.' });
+    const difficulty = url.searchParams.get('difficulty') || '';
+    if (!isPreset(difficulty)) return json(res, 400, { error: 'Dificultad no válida.' });
+    if (!leaderboardEnabled()) return json(res, 200, { enabled: false, difficulty, entries: [] });
+    try {
+      const limit = Number(url.searchParams.get('limit')) || 20;
+      const entries = await getTop(difficulty, limit);
+      return json(res, 200, { enabled: true, difficulty, entries });
+    } catch (e) {
+      console.error('leaderboard get', e);
+      return json(res, 502, { enabled: true, error: 'No se pudo leer la clasificación.' });
+    }
+  }
+
+  if (url.pathname === '/api/score' && req.method === 'POST') {
+    if (rateLimited(ip)) return json(res, 429, { error: 'Demasiadas peticiones.' });
+    if (!leaderboardEnabled()) return json(res, 200, { ok: false, enabled: false });
+    try {
+      const body = JSON.parse((await readBody(req)) || '{}') as { difficulty?: unknown; name?: unknown; timeMs?: unknown };
+      if (!isPreset(body.difficulty)) return json(res, 400, { error: 'Dificultad no válida.' });
+      const result = await submitScore(body.difficulty, body.name, body.timeMs);
+      return json(res, 200, { enabled: true, ...result });
+    } catch (e) {
+      console.error('leaderboard submit', e);
+      return json(res, 502, { ok: false, error: 'No se pudo guardar la puntuación.' });
+    }
+  }
+
+  cors(res);
   res.writeHead(404);
   res.end();
+}
+
+const httpServer = createServer((req, res) => {
+  handleHttp(req, res).catch((e) => {
+    console.error('http error', e);
+    if (!res.headersSent) { res.writeHead(500); res.end(); }
+  });
 });
 
 // Optional origin allow-list. Set ALLOWED_ORIGINS (comma-separated, e.g.

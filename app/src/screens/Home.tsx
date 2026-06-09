@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Badge, Button, Input, ModeCard, Segmented } from '../components';
+import { Leaderboard } from '../ui/Leaderboard';
 import { CUSTOM_LIMITS, DIFFICULTY_ORDER, DIFFICULTIES, resolveSpec } from '../../shared/types';
 import type { BoardSpec, DifficultyId, GameMode } from '../../shared/types';
 
@@ -156,6 +157,9 @@ export function Home({
           </p>
         )}
       </div>
+
+      {/* Global leaderboard */}
+      <Leaderboard playerName={name} />
     </div>
   );
 }

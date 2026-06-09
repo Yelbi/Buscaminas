@@ -14,6 +14,10 @@ export default defineConfig({
         ws: true,
         rewriteWsOrigin: true,
       },
+      '/api': {
+        target: 'http://localhost:8787',
+        changeOrigin: true,
+      },
     },
   },
 });
