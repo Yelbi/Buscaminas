@@ -88,10 +88,19 @@ guarda datos). Usamos **Upstash Redis** (free, sin tarjeta):
 2. En la página de la base de datos, sección **REST API**, copia:
    - `UPSTASH_REDIS_REST_URL`
    - `UPSTASH_REDIS_REST_TOKEN`
-3. En Render → servicio **buscaminas-ws** → **Environment** → añade esas **dos**
-   variables con esos nombres y valores → **Save** (Render redepliega).
+3. ⚠️ **En Render** (NO en Vercel) → servicio **buscaminas-ws** → **Environment** →
+   añade esas **dos** variables con esos nombres y valores → **Save** (Render redepliega).
+   El leaderboard lo sirve el **servidor de Render**, no Vercel; las variables `UPSTASH_*`
+   las lee el servidor en runtime. (En Vercel solo va `VITE_WS_URL`, que se compila en el frontend.)
 4. Listo: la **Clasificación global** aparece en el menú y guarda el mejor tiempo
    de cada jugador por dificultad (Fácil/Medio/Difícil).
+
+> **Resumen de dónde va cada variable:**
+> | Variable | Servicio | Por qué |
+> | --- | --- | --- |
+> | `VITE_WS_URL` | **Vercel** | Se hornea en el frontend al compilar (Vite). |
+> | `UPSTASH_REDIS_REST_URL` | **Render** | La lee el servidor en runtime. |
+> | `UPSTASH_REDIS_REST_TOKEN` | **Render** | La lee el servidor en runtime. |
 
 > Sin esas variables, el servidor responde `enabled:false` y el menú muestra
 > "La clasificación global aún no está configurada". El resto del juego funciona igual.
