@@ -4,7 +4,7 @@
    the React client and the Node server so both stay in sync.
    ============================================================ */
 
-import type { BoardView, DifficultyId, GameMode, GameStatus, PlayerSlotId } from './types';
+import type { BoardSpec, BoardView, DifficultyId, GameMode, GameStatus, PlayerSlotId } from './types';
 
 export type RoomPhase = 'lobby' | 'playing' | 'finished';
 
@@ -21,6 +21,8 @@ export interface RoomSnapshot {
   code: string;
   mode: GameMode;
   difficulty: DifficultyId;
+  /** Present when difficulty === 'custom': the chosen board dimensions. */
+  custom?: BoardSpec;
   phase: RoomPhase;
   hostSlot: PlayerSlotId;
   players: PlayerInfo[];
@@ -48,7 +50,7 @@ export interface GameSnapshot {
 
 /* ---- Client → Server ---- */
 export type ClientMsg =
-  | { t: 'create'; mode: GameMode; difficulty: DifficultyId; name: string }
+  | { t: 'create'; mode: GameMode; difficulty: DifficultyId; name: string; custom?: BoardSpec }
   | { t: 'join'; code: string; name: string }
   | { t: 'ready'; ready: boolean }
   | { t: 'start' }

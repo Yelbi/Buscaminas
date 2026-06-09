@@ -9,10 +9,12 @@ import { OnlineGame } from './screens/OnlineGame';
 import { useRoom } from './net/useRoom';
 import { MULTIPLAYER_ENABLED } from './net/config';
 import { useAudioUnlock } from './audio/useSound';
-import type { DifficultyId, GameMode } from '../shared/types';
+import { DEFAULT_CUSTOM, clampCustom } from '../shared/types';
+import type { BoardSpec, DifficultyId, GameMode } from '../shared/types';
 
 const NAME_KEY = 'buscaminas.name';
 const DIFF_KEY = 'buscaminas.difficulty';
+const CUSTOM_KEY = 'buscaminas.custom';
 
 function loadName(): string {
   try { return localStorage.getItem(NAME_KEY) || 'Jugador'; } catch { return 'Jugador'; }
@@ -20,9 +22,16 @@ function loadName(): string {
 function loadDifficulty(): DifficultyId {
   try {
     const v = localStorage.getItem(DIFF_KEY);
-    if (v === 'facil' || v === 'medio' || v === 'dificil') return v;
+    if (v === 'facil' || v === 'medio' || v === 'dificil' || v === 'custom') return v;
   } catch { /* ignore */ }
   return 'facil';
+}
+function loadCustom(): BoardSpec {
+  try {
+    const v = localStorage.getItem(CUSTOM_KEY);
+    if (v) return clampCustom(JSON.parse(v) as BoardSpec);
+  } catch { /* ignore */ }
+  return DEFAULT_CUSTOM;
 }
 
 export default function App() {
@@ -30,11 +39,13 @@ export default function App() {
   const room = useRoom();
   const [name, setName] = useState<string>(loadName);
   const [difficulty, setDifficulty] = useState<DifficultyId>(loadDifficulty);
+  const [custom, setCustom] = useState<BoardSpec>(loadCustom);
   const [view, setView] = useState<'home' | 'solo'>('home');
   const [pendingOnline, setPendingOnline] = useState(false);
 
   useEffect(() => { try { localStorage.setItem(NAME_KEY, name); } catch { /* ignore */ } }, [name]);
   useEffect(() => { try { localStorage.setItem(DIFF_KEY, difficulty); } catch { /* ignore */ } }, [difficulty]);
+  useEffect(() => { try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(custom)); } catch { /* ignore */ } }, [custom]);
 
   const goMenu = useCallback(() => {
     room.leave();
@@ -45,8 +56,8 @@ export default function App() {
   const create = useCallback((mode: Exclude<GameMode, 'solo'>) => {
     room.clearError();
     setPendingOnline(true);
-    room.createRoom(mode, difficulty, name || 'Jugador');
-  }, [room, difficulty, name]);
+    room.createRoom(mode, difficulty, name || 'Jugador', difficulty === 'custom' ? clampCustom(custom) : undefined);
+  }, [room, difficulty, name, custom]);
 
   const join = useCallback((code: string) => {
     room.clearError();
@@ -95,7 +106,7 @@ export default function App() {
       />
     );
   } else if (view === 'solo') {
-    screen = <SoloGame difficulty={difficulty} onMenu={goMenu} />;
+    screen = <SoloGame difficulty={difficulty} custom={custom} onMenu={goMenu} />;
   } else {
     screen = (
       <Home
@@ -103,6 +114,8 @@ export default function App() {
         onName={setName}
         difficulty={difficulty}
         onDifficulty={setDifficulty}
+        custom={custom}
+        onCustom={setCustom}
         onSolo={() => setView('solo')}
         onCreate={create}
         onJoin={join}

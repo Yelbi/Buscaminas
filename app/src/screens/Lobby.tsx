@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Badge, Button, PlayerTag } from '../components';
-import { DIFFICULTIES, MODE_LABELS } from '../../shared/types';
+import { MODE_LABELS, resolveSpec } from '../../shared/types';
 import type { PlayerSlotId } from '../../shared/types';
 import type { RoomSnapshot } from '../../shared/protocol';
 
@@ -20,7 +20,7 @@ export function Lobby({
   onLeave: () => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const cfg = DIFFICULTIES[room.difficulty];
+  const cfg = resolveSpec(room.difficulty, room.custom);
   const me = room.players.find((p) => p.slot === you) ?? null;
   const everyoneReady = room.players.length === 2 && room.players.every((p) => p.connected && p.ready);
   const tone = room.mode === 'versus' ? 'magenta' : 'lime';
@@ -61,7 +61,7 @@ export function Lobby({
         </button>
         <div className="row center" style={{ gap: 'var(--sp-2)' }}>
           <Badge tone={tone}>{MODE_LABELS[room.mode]}</Badge>
-          <Badge tone="cyan">{DIFFICULTIES[room.difficulty].label}</Badge>
+          <Badge tone="cyan">{cfg.label}</Badge>
           <Badge tone="neutral">{cfg.rows}×{cfg.cols} · {cfg.mines} minas</Badge>
           <span style={{ fontSize: 'var(--fs-sm)', color: copied ? 'var(--neon-lime)' : 'var(--text-dim)' }}>
             {copied ? '¡Copiado!' : 'Toca el código para copiar'}

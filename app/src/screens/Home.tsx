@@ -1,13 +1,20 @@
 import { useState } from 'react';
 import { Badge, Button, Input, ModeCard, Segmented } from '../components';
-import { DIFFICULTIES, DIFFICULTY_ORDER } from '../../shared/types';
-import type { DifficultyId, GameMode } from '../../shared/types';
+import { CUSTOM_LIMITS, DIFFICULTY_ORDER, DIFFICULTIES, resolveSpec } from '../../shared/types';
+import type { BoardSpec, DifficultyId, GameMode } from '../../shared/types';
+
+const toInt = (s: string, fallback: number) => {
+  const n = parseInt(s, 10);
+  return Number.isNaN(n) ? fallback : n;
+};
 
 export function Home({
   name,
   onName,
   difficulty,
   onDifficulty,
+  custom,
+  onCustom,
   onSolo,
   onCreate,
   onJoin,
@@ -18,6 +25,8 @@ export function Home({
   onName: (v: string) => void;
   difficulty: DifficultyId;
   onDifficulty: (d: DifficultyId) => void;
+  custom: BoardSpec;
+  onCustom: (s: BoardSpec) => void;
   onSolo: () => void;
   onCreate: (mode: Exclude<GameMode, 'solo'>) => void;
   onJoin: (code: string) => void;
@@ -25,8 +34,12 @@ export function Home({
   multiplayerEnabled: boolean;
 }) {
   const [code, setCode] = useState('');
-  const cfg = DIFFICULTIES[difficulty];
-  const diffOptions = DIFFICULTY_ORDER.map((id) => ({ value: id, label: DIFFICULTIES[id].label }));
+  const cfg = resolveSpec(difficulty, custom);
+  const diffOptions = [
+    ...DIFFICULTY_ORDER.map((id) => ({ value: id, label: DIFFICULTIES[id].label })),
+    { value: 'custom', label: 'Personalizada' },
+  ];
+  const maxMines = Math.max(1, cfg.rows * cfg.cols - 1);
 
   return (
     <div className="stack pop-in" style={{ gap: 'var(--sp-6)' }}>
@@ -47,11 +60,46 @@ export function Home({
           />
           <div className="stack" style={{ gap: 'var(--sp-2)' }}>
             <span className="section-label" style={{ margin: 0 }}>Dificultad</span>
-            <Segmented options={diffOptions} value={difficulty} onChange={(v) => onDifficulty(v as DifficultyId)} />
+            <Segmented
+              options={diffOptions}
+              value={difficulty}
+              onChange={(v) => onDifficulty(v as DifficultyId)}
+              style={{ flexWrap: 'wrap', maxWidth: '100%' }}
+            />
           </div>
         </div>
+
+        {difficulty === 'custom' && (
+          <div className="row wrap" style={{ gap: 'var(--sp-3)', alignItems: 'flex-end' }}>
+            <Input
+              label="Filas" type="number" inputMode="numeric"
+              min={CUSTOM_LIMITS.minRows} max={CUSTOM_LIMITS.maxRows}
+              value={String(custom.rows)}
+              onChange={(e) => onCustom({ ...custom, rows: toInt(e.target.value, custom.rows) })}
+              style={{ width: 110 }}
+            />
+            <Input
+              label="Columnas" type="number" inputMode="numeric"
+              min={CUSTOM_LIMITS.minCols} max={CUSTOM_LIMITS.maxCols}
+              value={String(custom.cols)}
+              onChange={(e) => onCustom({ ...custom, cols: toInt(e.target.value, custom.cols) })}
+              style={{ width: 110 }}
+            />
+            <Input
+              label="Minas" type="number" inputMode="numeric"
+              min={CUSTOM_LIMITS.minMines} max={maxMines}
+              value={String(custom.mines)}
+              onChange={(e) => onCustom({ ...custom, mines: toInt(e.target.value, custom.mines) })}
+              style={{ width: 110 }}
+            />
+            <span style={{ color: 'var(--text-dim)', fontSize: 'var(--fs-sm)' }}>
+              {CUSTOM_LIMITS.minRows}–{CUSTOM_LIMITS.maxRows} filas · {CUSTOM_LIMITS.minCols}–{CUSTOM_LIMITS.maxCols} columnas · máx {maxMines} minas
+            </span>
+          </div>
+        )}
+
         <div className="row wrap" style={{ gap: 'var(--sp-2)' }}>
-          <Badge tone="cyan">{cfg.rows}×{cfg.cols}</Badge>
+          <Badge tone={difficulty === 'custom' ? 'purple' : 'cyan'}>{cfg.rows}×{cfg.cols}</Badge>
           <Badge tone="red" dot>{cfg.mines} minas</Badge>
           <span style={{ color: 'var(--text-dim)', fontSize: 'var(--fs-sm)' }}>
             Se aplica al modo solitario y a las salas que crees.

@@ -24,3 +24,6 @@ Thumbs.db
 
 # Vercel
 .vercel
+
+# Source music drops at repo root (the app uses app/public/audio/*.mp3)
+/Menu*.mp3

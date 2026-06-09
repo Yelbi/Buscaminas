@@ -71,10 +71,10 @@ function handle(ws: WebSocket, msg: ClientMsg): void {
   switch (msg.t) {
     case 'create': {
       if (msg.mode !== 'coop' && msg.mode !== 'versus') return err(ws, 'Modo no válido para multijugador.');
-      if (!DIFFICULTIES[msg.difficulty]) return err(ws, 'Dificultad no válida.');
+      if (msg.difficulty !== 'custom' && !DIFFICULTIES[msg.difficulty]) return err(ws, 'Dificultad no válida.');
       let code = makeRoomCode();
       while (rooms.has(code)) code = makeRoomCode();
-      const newRoom = new Room(code, msg.mode, msg.difficulty);
+      const newRoom = new Room(code, msg.mode, msg.difficulty, msg.custom);
       const player = newRoom.addPlayer(ws, cleanName(msg.name));
       if (!player) return err(ws, 'No se pudo crear la sala.');
       rooms.set(code, newRoom);

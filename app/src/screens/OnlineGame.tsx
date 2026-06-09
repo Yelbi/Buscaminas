@@ -8,7 +8,7 @@ import { useFitTile } from '../game/useFitTile';
 import { boardHandlers } from '../game/boardHandlers';
 import type { BoardActions } from '../game/boardHandlers';
 import { toBoardCells, formatClock } from '../lib/format';
-import { DIFFICULTIES, MODE_LABELS } from '../../shared/types';
+import { MODE_LABELS, resolveSpec } from '../../shared/types';
 import type { PlayerSlotId } from '../../shared/types';
 import type { GameSnapshot, RoomSnapshot } from '../../shared/protocol';
 
@@ -39,7 +39,7 @@ export function OnlineGame({
     prevPhase.current = game.phase;
   }, [game.phase]);
 
-  const cfg = DIFFICULTIES[room.difficulty];
+  const cfg = resolveSpec(room.difficulty, room.custom);
   const isVersus = room.mode === 'versus';
   const oppCols = game.opponentBoard?.[0]?.length ?? 0;
   const [oppRef, oppTilePx] = useFitTile(oppCols, 22, { minPx: 10 });

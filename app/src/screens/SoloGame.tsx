@@ -8,18 +8,18 @@ import { GameBoard } from '../game/GameBoard';
 import { useSoloGame } from '../game/useSoloGame';
 import { boardHandlers } from '../game/boardHandlers';
 import { formatClock } from '../lib/format';
-import { DIFFICULTIES } from '../../shared/types';
-import type { DifficultyId } from '../../shared/types';
+import { resolveSpec } from '../../shared/types';
+import type { BoardSpec, DifficultyId } from '../../shared/types';
 
-const DIFF_TONE: Record<DifficultyId, BadgeTone> = { facil: 'lime', medio: 'yellow', dificil: 'red' };
+const DIFF_TONE: Record<DifficultyId, BadgeTone> = { facil: 'lime', medio: 'yellow', dificil: 'red', custom: 'purple' };
 
-export function SoloGame({ difficulty, onMenu }: { difficulty: DifficultyId; onMenu: () => void }) {
-  const game = useSoloGame(difficulty);
+export function SoloGame({ difficulty, custom, onMenu }: { difficulty: DifficultyId; custom?: BoardSpec; onMenu: () => void }) {
+  const cfg = resolveSpec(difficulty, custom);
+  const game = useSoloGame(cfg, difficulty === 'custom' ? null : difficulty);
   const [flagMode, setFlagMode] = useState(false);
   const [seqDone, setSeqDone] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
-  const cfg = DIFFICULTIES[game.difficulty];
   const handlers = boardHandlers(game.board, flagMode, game);
   const playing = game.status === 'playing';
   const outcome = game.status === 'won' ? 'win' : game.status === 'lost' ? 'lose' : null;
@@ -32,7 +32,7 @@ export function SoloGame({ difficulty, onMenu }: { difficulty: DifficultyId; onM
       <Hud
         minesRemaining={game.flagsRemaining}
         elapsedMs={game.elapsedMs}
-        left={<Badge tone={DIFF_TONE[game.difficulty]}>{cfg.label}</Badge>}
+        left={<Badge tone={DIFF_TONE[difficulty]}>{cfg.label}</Badge>}
         right={game.bestMs != null
           ? <Badge tone="cyan">Récord {formatClock(game.bestMs)}</Badge>
           : <Badge tone="neutral">Sin récord</Badge>}

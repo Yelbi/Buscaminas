@@ -17,8 +17,8 @@ import {
   chord,
   progress,
 } from '../shared/minesweeper';
-import { DIFFICULTIES } from '../shared/types';
-import type { DifficultyId, GameMode, GameState, PlayerSlotId } from '../shared/types';
+import { resolveSpec } from '../shared/types';
+import type { BoardSpec, DifficultyId, GameMode, GameState, PlayerSlotId, ResolvedSpec } from '../shared/types';
 import type { GameResult, GameSnapshot, PlayerInfo, RoomSnapshot } from '../shared/protocol';
 
 export interface Player {
@@ -38,6 +38,8 @@ export class Room {
   code: string;
   mode: GameMode;
   difficulty: DifficultyId;
+  custom?: BoardSpec;
+  spec: ResolvedSpec;
   phase: 'lobby' | 'playing' | 'finished' = 'lobby';
   players = new Map<PlayerSlotId, Player>();
 
@@ -48,10 +50,13 @@ export class Room {
   result: GameResult | null = null;
   tick: ReturnType<typeof setInterval> | null = null;
 
-  constructor(code: string, mode: GameMode, difficulty: DifficultyId) {
+  constructor(code: string, mode: GameMode, difficulty: DifficultyId, custom?: BoardSpec) {
     this.code = code;
     this.mode = mode;
     this.difficulty = difficulty;
+    this.spec = resolveSpec(difficulty, custom);
+    // Store the clamped custom dims so clients see exactly what's in play.
+    if (difficulty === 'custom') this.custom = { rows: this.spec.rows, cols: this.spec.cols, mines: this.spec.mines };
   }
 
   get hostSlot(): PlayerSlotId {
@@ -99,7 +104,7 @@ export class Room {
   /* ---- Game lifecycle ---- */
 
   startGame(): void {
-    const cfg = DIFFICULTIES[this.difficulty];
+    const cfg = this.spec;
     this.result = null;
     this.startedAt = Date.now();
     this.phase = 'playing';
@@ -250,6 +255,7 @@ export class Room {
       code: this.code,
       mode: this.mode,
       difficulty: this.difficulty,
+      custom: this.custom,
       phase: this.phase,
       hostSlot: this.hostSlot,
       players,

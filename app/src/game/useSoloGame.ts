@@ -8,8 +8,7 @@ import {
   revealAllMines,
   toggleFlag,
 } from '../../shared/minesweeper';
-import { DIFFICULTIES } from '../../shared/types';
-import type { BoardView, DifficultyId, GameState, GameStatus } from '../../shared/types';
+import type { BoardView, GameState, GameStatus, ResolvedSpec } from '../../shared/types';
 
 interface Snap {
   board: BoardView;
@@ -19,7 +18,6 @@ interface Snap {
 }
 
 export interface SoloApi {
-  difficulty: DifficultyId;
   round: number;
   board: BoardView;
   status: GameStatus;
@@ -30,7 +28,7 @@ export interface SoloApi {
   reveal: (r: number, c: number) => void;
   flag: (r: number, c: number) => void;
   chord: (r: number, c: number) => void;
-  reset: (difficulty?: DifficultyId) => void;
+  reset: () => void;
 }
 
 function build(st: GameState): Snap {
@@ -43,49 +41,51 @@ function build(st: GameState): Snap {
   };
 }
 
-function bestKey(d: DifficultyId): string {
-  return `buscaminas.best.${d}`;
-}
-function readBest(d: DifficultyId): number | null {
+function readBest(key: string | null): number | null {
+  if (!key) return null;
   try {
-    const v = localStorage.getItem(bestKey(d));
+    const v = localStorage.getItem(`buscaminas.best.${key}`);
     return v ? Number(v) : null;
   } catch {
     return null;
   }
 }
-function writeBest(d: DifficultyId, ms: number): void {
-  try { localStorage.setItem(bestKey(d), String(ms)); } catch { /* ignore */ }
+function writeBest(key: string, ms: number): void {
+  try { localStorage.setItem(`buscaminas.best.${key}`, String(ms)); } catch { /* ignore */ }
 }
 
-function freshState(d: DifficultyId): GameState {
-  const cfg = DIFFICULTIES[d];
-  return createState(cfg.rows, cfg.cols, cfg.mines, true);
+function freshState(spec: ResolvedSpec): GameState {
+  return createState(spec.rows, spec.cols, spec.mines, true);
 }
 
-export function useSoloGame(initial: DifficultyId): SoloApi {
-  const [difficulty, setDifficulty] = useState<DifficultyId>(initial);
-  const stateRef = useRef<GameState>(freshState(initial));
+/**
+ * Solo game state machine. `spec` resolves the board dimensions (supports the
+ * custom difficulty); `bestKey` is the localStorage suffix for best time, or
+ * null to disable persistence (e.g. for custom boards).
+ */
+export function useSoloGame(spec: ResolvedSpec, bestKey: string | null): SoloApi {
+  const specRef = useRef(spec);
+  specRef.current = spec;
+
+  const stateRef = useRef<GameState>(freshState(spec));
   const [snap, setSnap] = useState<Snap>(() => build(stateRef.current));
   const [started, setStarted] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
-  const [bestMs, setBestMs] = useState<number | null>(() => readBest(initial));
+  const [bestMs, setBestMs] = useState<number | null>(() => readBest(bestKey));
   const [round, setRound] = useState(0);
   const startRef = useRef<number | null>(null);
 
   const commit = useCallback(() => setSnap(build(stateRef.current)), []);
 
-  const reset = useCallback((d?: DifficultyId) => {
-    const diff = d ?? difficulty;
-    if (d && d !== difficulty) setDifficulty(d);
-    stateRef.current = freshState(diff);
+  const reset = useCallback(() => {
+    stateRef.current = freshState(specRef.current);
     startRef.current = null;
     setStarted(false);
     setElapsedMs(0);
-    setBestMs(readBest(diff));
+    setBestMs(readBest(bestKey));
     setSnap(build(stateRef.current));
     setRound((n) => n + 1);
-  }, [difficulty]);
+  }, [bestKey]);
 
   const beginIfNeeded = useCallback(() => {
     if (startRef.current == null) {
@@ -101,11 +101,11 @@ export function useSoloGame(initial: DifficultyId): SoloApi {
     const total = startRef.current != null ? end - startRef.current : 0;
     setElapsedMs(total);
     if (st.status === 'lost') revealAllMines(st);
-    if (st.status === 'won') {
-      const prev = readBest(difficulty);
-      if (prev == null || total < prev) { writeBest(difficulty, total); setBestMs(total); }
+    if (st.status === 'won' && bestKey) {
+      const prev = readBest(bestKey);
+      if (prev == null || total < prev) { writeBest(bestKey, total); setBestMs(total); }
     }
-  }, [difficulty]);
+  }, [bestKey]);
 
   const reveal = useCallback((r: number, c: number) => {
     const st = stateRef.current;
@@ -143,7 +143,6 @@ export function useSoloGame(initial: DifficultyId): SoloApi {
   }, [snap.status, started]);
 
   return {
-    difficulty,
     round,
     board: snap.board,
     status: snap.status,

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { decode, encode } from '../../shared/protocol';
 import type { ClientMsg, GameSnapshot, RoomSnapshot, ServerMsg } from '../../shared/protocol';
-import type { DifficultyId, GameMode, PlayerSlotId } from '../../shared/types';
+import type { BoardSpec, DifficultyId, GameMode, PlayerSlotId } from '../../shared/types';
 import { wsUrl } from './config';
 
 export type ConnStatus = 'idle' | 'connecting' | 'open' | 'closed';
@@ -16,7 +16,7 @@ export interface RoomState {
 }
 
 export interface RoomApi extends RoomState {
-  createRoom: (mode: GameMode, difficulty: DifficultyId, name: string) => void;
+  createRoom: (mode: GameMode, difficulty: DifficultyId, name: string, custom?: BoardSpec) => void;
   joinRoom: (code: string, name: string) => void;
   setReady: (ready: boolean) => void;
   start: () => void;
@@ -99,9 +99,9 @@ export function useRoom(): RoomApi {
     }
   }, [ensureSocket]);
 
-  const createRoom = useCallback((mode: GameMode, difficulty: DifficultyId, name: string) => {
+  const createRoom = useCallback((mode: GameMode, difficulty: DifficultyId, name: string, custom?: BoardSpec) => {
     ensureSocket();
-    send({ t: 'create', mode, difficulty, name });
+    send({ t: 'create', mode, difficulty, name, custom });
   }, [ensureSocket, send]);
 
   const joinRoom = useCallback((code: string, name: string) => {

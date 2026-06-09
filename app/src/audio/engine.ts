@@ -1,10 +1,10 @@
 /* ============================================================
    Buscaminas — Audio engine
-   All sound is synthesized with the Web Audio API (no asset
-   files): SFX for flags/reveals/explosions/win/lose, plus a
-   subtle looping arcade music bed. Browser autoplay rules mean
-   the context only starts after the first user gesture — see
-   unlock(). Preferences persist in localStorage.
+   SFX are synthesized with the Web Audio API (flags / reveals /
+   explosions / win / lose). Background music streams two MP3
+   tracks ("Menu 1" / "Menu 2") as a looping playlist. Browser
+   autoplay rules mean audio only starts after the first user
+   gesture — see unlock(). Preferences persist in localStorage.
    ============================================================ */
 
 export type SfxName =
@@ -15,7 +15,8 @@ type Win = typeof window & { webkitAudioContext?: typeof AudioContext };
 
 const MUSIC_KEY = 'buscaminas.audio.music';
 const SFX_KEY = 'buscaminas.audio.sfx';
-const MUSIC_LEVEL = 0.5; // music bus gain (note gains are small, so this must be sizeable)
+const MUSIC_VOLUME = 0.5;
+const MUSIC_TRACKS = ['/audio/menu-1.mp3', '/audio/menu-2.mp3'];
 
 function readPref(key: string, dflt: boolean): boolean {
   try { const v = localStorage.getItem(key); return v == null ? dflt : v === '1'; } catch { return dflt; }
@@ -27,16 +28,14 @@ function writePref(key: string, v: boolean): void {
 class AudioEngine {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
-  private musicGain: GainNode | null = null;
   private sfxGain: GainNode | null = null;
   private noiseBuffer: AudioBuffer | null = null;
 
   musicEnabled = readPref(MUSIC_KEY, true);
   sfxEnabled = readPref(SFX_KEY, true);
 
-  private musicTimer: ReturnType<typeof setInterval> | null = null;
-  private nextNoteTime = 0;
-  private step = 0;
+  private musicEl: HTMLAudioElement | null = null;
+  private trackIndex = Math.floor(Math.random() * MUSIC_TRACKS.length);
   private listeners = new Set<() => void>();
 
   subscribe(fn: () => void): () => void {
@@ -56,13 +55,6 @@ class AudioEngine {
     this.master.gain.value = 0.9;
     this.master.connect(ctx.destination);
 
-    this.musicGain = ctx.createGain();
-    this.musicGain.gain.value = this.musicEnabled ? MUSIC_LEVEL : 0;
-    const warm = ctx.createBiquadFilter(); // soften the loop so it sits behind SFX
-    warm.type = 'lowpass';
-    warm.frequency.value = 2400;
-    this.musicGain.connect(warm).connect(this.master);
-
     this.sfxGain = ctx.createGain();
     this.sfxGain.gain.value = this.sfxEnabled ? 0.9 : 0;
     this.sfxGain.connect(this.master);
@@ -75,21 +67,16 @@ class AudioEngine {
     return true;
   }
 
-  /** Call from the first user gesture: resumes the context and starts music. */
+  /** Call from the first user gesture: resumes audio and starts the music. */
   unlock(): void {
-    if (!this.ensure() || !this.ctx) return;
-    if (this.ctx.state === 'suspended') void this.ctx.resume();
+    this.ensure();
+    if (this.ctx?.state === 'suspended') void this.ctx.resume();
     if (this.musicEnabled) this.startMusic();
   }
 
   setMusicEnabled(on: boolean): void {
     this.musicEnabled = on;
     writePref(MUSIC_KEY, on);
-    if (this.ctx && this.musicGain) {
-      const t = this.ctx.currentTime;
-      this.musicGain.gain.cancelScheduledValues(t);
-      this.musicGain.gain.linearRampToValueAtTime(on ? MUSIC_LEVEL : 0, t + 0.25);
-    }
     if (on) this.startMusic(); else this.stopMusic();
     this.emit();
   }
@@ -101,11 +88,45 @@ class AudioEngine {
     this.emit();
   }
 
+  /* ---- Music (streamed MP3 playlist, looped) ---- */
+
+  private ensureMusicEl(): HTMLAudioElement {
+    if (this.musicEl) return this.musicEl;
+    const el = new Audio();
+    el.preload = 'auto';
+    el.volume = MUSIC_VOLUME;
+    el.addEventListener('ended', () => {
+      this.trackIndex = (this.trackIndex + 1) % MUSIC_TRACKS.length;
+      this.playTrack();
+    });
+    this.musicEl = el;
+    return el;
+  }
+
+  private playTrack(): void {
+    const el = this.ensureMusicEl();
+    el.src = MUSIC_TRACKS[this.trackIndex];
+    const p = el.play();
+    if (p) p.catch(() => { /* blocked until a gesture — retried on unlock */ });
+  }
+
+  startMusic(): void {
+    if (!this.musicEnabled) return;
+    const el = this.ensureMusicEl();
+    if (!el.src) { this.playTrack(); return; }
+    const p = el.play(); // resume current track
+    if (p) p.catch(() => {});
+  }
+
+  stopMusic(): void {
+    this.musicEl?.pause();
+  }
+
   /* ---- SFX ---- */
 
   private tone(opts: {
     freq: number; dur: number; type?: OscillatorType; gain?: number;
-    slideTo?: number; attack?: number; when?: number; dest?: AudioNode;
+    slideTo?: number; attack?: number; when?: number;
   }): void {
     if (!this.ctx || !this.sfxGain) return;
     const t0 = (opts.when ?? this.ctx.currentTime);
@@ -119,7 +140,7 @@ class AudioEngine {
     g.gain.setValueAtTime(0.0001, t0);
     g.gain.exponentialRampToValueAtTime(peak, t0 + atk);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + opts.dur);
-    osc.connect(g).connect(opts.dest ?? this.sfxGain);
+    osc.connect(g).connect(this.sfxGain);
     osc.start(t0);
     osc.stop(t0 + opts.dur + 0.02);
   }
@@ -159,7 +180,6 @@ class AudioEngine {
         this.tone({ freq: 1300, slideTo: 1500, dur: 0.045, type: 'square', gain: 0.10 });
         break;
       case 'open': {
-        // A bigger "crumble" when a region opens; brighter the more cells.
         const n = Math.min(8, Math.max(2, count));
         this.noise({ dur: 0.16 + n * 0.01, gain: 0.18, lpFrom: 900 + n * 120, lpTo: 240 });
         this.tone({ freq: 480 + n * 30, slideTo: 220, dur: 0.14, type: 'sine', gain: 0.12 });
@@ -189,51 +209,6 @@ class AudioEngine {
       case 'start':
         this.tone({ freq: 300, slideTo: 900, dur: 0.18, type: 'triangle', gain: 0.2 });
         break;
-    }
-  }
-
-  /* ---- Music: subtle looping arcade bed ---- */
-
-  // 16-step patterns over a neon minor vibe (Am–F–C–G feel). null = rest.
-  private bass: Array<number | null> = [
-    110, null, 110, 110, 87.31, null, 87.31, null, 130.81, null, 130.81, 130.81, 98, null, 98, null,
-  ];
-  private arp = [
-    440, 523.25, 659.25, 880, 698.46, 523.25, 659.25, 880,
-    523.25, 659.25, 783.99, 1046.5, 587.33, 783.99, 987.77, 587.33,
-  ];
-  private readonly stepDur = 0.1515; // ~ 99 BPM in 16ths
-
-  startMusic(): void {
-    if (!this.ensure() || !this.ctx || this.musicTimer) return;
-    if (!this.musicEnabled) return;
-    this.nextNoteTime = this.ctx.currentTime + 0.1;
-    this.musicTimer = setInterval(() => this.scheduler(), 25);
-  }
-
-  stopMusic(): void {
-    if (this.musicTimer) { clearInterval(this.musicTimer); this.musicTimer = null; }
-  }
-
-  private kick(when: number): void {
-    this.tone({ freq: 155, slideTo: 46, dur: 0.14, type: 'sine', gain: 0.3, when, dest: this.musicGain ?? undefined });
-  }
-
-  private scheduler(): void {
-    if (!this.ctx || !this.musicGain) return;
-    const lookahead = 0.12;
-    while (this.nextNoteTime < this.ctx.currentTime + lookahead) {
-      const s = this.step % 16;
-      const when = this.nextNoteTime;
-      if (s % 4 === 0) this.kick(when);                      // soft pulse on quarter notes
-      const b = this.bass[s];
-      if (b) this.tone({ freq: b, dur: this.stepDur * 1.7, type: 'sawtooth', gain: 0.16, when, dest: this.musicGain });
-      if (s % 2 === 0) {
-        const a = this.arp[this.step % this.arp.length];
-        if (a) this.tone({ freq: a, dur: this.stepDur * 0.85, type: 'triangle', gain: 0.12, when, dest: this.musicGain });
-      }
-      this.nextNoteTime += this.stepDur;
-      this.step++;
     }
   }
 }
