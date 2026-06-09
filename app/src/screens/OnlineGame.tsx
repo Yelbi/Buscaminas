@@ -4,6 +4,7 @@ import { Hud } from '../ui/Hud';
 import { GameControls } from '../ui/GameControls';
 import { ResultDialog, ResultReopen } from '../ui/ResultDialog';
 import { GameBoard } from '../game/GameBoard';
+import { useFitTile } from '../game/useFitTile';
 import { boardHandlers } from '../game/boardHandlers';
 import type { BoardActions } from '../game/boardHandlers';
 import { toBoardCells, formatClock } from '../lib/format';
@@ -40,6 +41,8 @@ export function OnlineGame({
 
   const cfg = DIFFICULTIES[room.difficulty];
   const isVersus = room.mode === 'versus';
+  const oppCols = game.opponentBoard?.[0]?.length ?? 0;
+  const [oppRef, oppTilePx] = useFitTile(oppCols, 22, { minPx: 10 });
   const playing = game.phase === 'playing' && game.status === 'playing';
   const outcome = game.status === 'won' ? 'win' : game.status === 'lost' ? 'lose' : null;
   const handlers = boardHandlers(game.board, flagMode, api);
@@ -73,26 +76,24 @@ export function OnlineGame({
         right={<Badge tone="cyan">{cfg.label}</Badge>}
       />
 
-      <div className="board-scroll">
-        <GameBoard
-          view={game.board}
-          size={cfg.tile}
-          interactive={playing}
-          gameKey={matchKey}
-          finished={game.phase === 'finished'}
-          outcome={outcome}
-          onSequenceDone={() => setSeqDone(true)}
-          onCell={handlers.onCell}
-          onCellContext={handlers.onCellContext}
-        />
-      </div>
+      <GameBoard
+        view={game.board}
+        size={cfg.tile}
+        interactive={playing}
+        gameKey={matchKey}
+        finished={game.phase === 'finished'}
+        outcome={outcome}
+        onSequenceDone={() => setSeqDone(true)}
+        onCell={handlers.onCell}
+        onCellContext={handlers.onCellContext}
+      />
 
       {/* Versus: opponent progress mini-map */}
       {isVersus && game.opponentBoard && (
-        <div className="stack center" style={{ gap: 'var(--sp-2)' }}>
+        <div className="stack center" style={{ gap: 'var(--sp-2)', width: '100%' }}>
           <span className="section-label" style={{ margin: 0 }}>Progreso del rival</span>
-          <div className="board-scroll" style={{ opacity: 0.85, pointerEvents: 'none' }}>
-            <Board cells={toBoardCells(game.opponentBoard)} size="sm" />
+          <div ref={oppRef} className="board-fit" style={{ opacity: 0.85, pointerEvents: 'none' }}>
+            <Board cells={toBoardCells(game.opponentBoard)} size="sm" tilePx={oppTilePx} />
           </div>
         </div>
       )}

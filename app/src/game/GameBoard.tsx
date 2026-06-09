@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { TouchEvent as ReactTouchEvent } from 'react';
 import { Tile } from '../components/Tile';
 import type { Owner, TileSize, TileState } from '../components/Tile';
 import type { BoardView, CellView } from '../../shared/types';
 import { audio } from '../audio/engine';
+import { useFitTile } from './useFitTile';
 
 type AnimType = 'reveal' | 'flagOn' | 'flagOff' | 'explode' | 'explodeBig';
 interface AnimEntry { type: AnimType; id: number; delay: number; }
@@ -16,6 +18,11 @@ const ANIM_CLASS: Record<AnimType, string> = {
 };
 
 const TILE_PX: Record<TileSize, number> = { sm: 28, md: 38, lg: 46 };
+
+function vibrate(ms: number): void {
+  const nav = navigator as Navigator & { vibrate?: (n: number) => boolean };
+  try { nav.vibrate?.(ms); } catch { /* ignore */ }
+}
 
 export interface GameBoardProps {
   view: BoardView;
@@ -44,7 +51,7 @@ export function GameBoard({
   view, size, interactive, onCell, onCellContext, gameKey, finished, outcome, onSequenceDone,
 }: GameBoardProps) {
   const cols = view[0]?.length || 0;
-  const tilePx = TILE_PX[size] ?? 38;
+  const [fitRef, tilePx] = useFitTile(cols, TILE_PX[size] ?? 38, { minPx: 18 });
 
   const [anims, setAnims] = useState<Record<string, AnimEntry>>({});
   const [seqStep, setSeqStep] = useState(-1);
@@ -57,6 +64,11 @@ export function GameBoard({
   const mineIndexRef = useRef<Map<string, number>>(new Map());
   const seqRanForRef = useRef<string | number | null>(null);
   const timersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+
+  // Touch state for tap vs. long-press (flag) handling.
+  const pressRef = useRef<{ r: number; c: number; x: number; y: number; moved: boolean; handled: boolean } | null>(null);
+  const longTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTouchRef = useRef(0);
 
   const addTimer = (fn: () => void, ms: number) => { timersRef.current.push(setTimeout(fn, ms)); };
   const clearTimers = () => { timersRef.current.forEach(clearTimeout); timersRef.current = []; };
@@ -176,35 +188,86 @@ export function GameBoard({
     }));
   }, [view, finished, outcome, seqStep]);
 
+  /* ---- Touch: tap to reveal, long-press to flag ---- */
+  const cellFromTouch = (e: ReactTouchEvent): { r: number; c: number } | null => {
+    const btn = (e.target as HTMLElement).closest('button[data-cell]') as HTMLElement | null;
+    const cell = btn?.dataset.cell;
+    if (!cell) return null;
+    const [r, c] = cell.split('-').map(Number);
+    return { r, c };
+  };
+  const onTouchStart = (e: ReactTouchEvent) => {
+    if (!interactive) return;
+    const cell = cellFromTouch(e);
+    if (!cell) return;
+    const t = e.touches[0];
+    pressRef.current = { r: cell.r, c: cell.c, x: t.clientX, y: t.clientY, moved: false, handled: false };
+    if (longTimerRef.current) clearTimeout(longTimerRef.current);
+    longTimerRef.current = setTimeout(() => {
+      const p = pressRef.current;
+      if (p && !p.moved) { p.handled = true; vibrate(18); onCellContext(p.r, p.c); }
+    }, 420);
+  };
+  const onTouchMove = (e: ReactTouchEvent) => {
+    const p = pressRef.current;
+    if (!p) return;
+    const t = e.touches[0];
+    if (Math.hypot(t.clientX - p.x, t.clientY - p.y) > 12) {
+      p.moved = true;
+      if (longTimerRef.current) { clearTimeout(longTimerRef.current); longTimerRef.current = null; }
+    }
+  };
+  const onTouchEnd = (e: ReactTouchEvent) => {
+    if (longTimerRef.current) { clearTimeout(longTimerRef.current); longTimerRef.current = null; }
+    const p = pressRef.current;
+    pressRef.current = null;
+    lastTouchRef.current = Date.now();
+    if (!interactive || !p || p.moved || p.handled) return;
+    e.preventDefault(); // suppress the synthetic click
+    onCell(p.r, p.c);
+  };
+
   return (
-    <div
-      className={`game-board${shake ? ' board-shake' : ''}${celebrate ? ' board-win' : ''}`}
-      style={{
-        display: 'inline-block', padding: 'var(--sp-4)', borderRadius: 'var(--r-lg)',
-        background: 'var(--surface-1)', border: '1px solid var(--line)',
-        boxShadow: 'var(--shadow-lg), inset 0 0 0 1px rgba(25,227,255,0.04)',
-      }}
-    >
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, ${tilePx}px)`, gap: 'var(--tile-gap)' }}>
-        {display.flatMap((row, r) =>
-          row.map((cell, c) => {
-            const t = toTile(cell);
-            const anim = anims[`${r}-${c}`];
-            return (
-              <Tile
-                key={anim ? `${r}-${c}-a${anim.id}` : `${r}-${c}`}
-                state={t.state}
-                value={t.value}
-                owner={t.owner}
-                size={size}
-                className={anim ? ANIM_CLASS[anim.type] : undefined}
-                style={anim?.delay ? { animationDelay: `${anim.delay}s` } : undefined}
-                onClick={interactive ? () => onCell(r, c) : undefined}
-                onContextMenu={(e) => { e.preventDefault(); if (interactive) onCellContext(r, c); }}
-              />
-            );
-          }),
-        )}
+    <div ref={fitRef} className="board-fit">
+      <div
+        className={`game-board${shake ? ' board-shake' : ''}${celebrate ? ' board-win' : ''}`}
+        style={{
+          display: 'inline-block', padding: 'var(--sp-4)', borderRadius: 'var(--r-lg)',
+          background: 'var(--surface-1)', border: '1px solid var(--line)',
+          boxShadow: 'var(--shadow-lg), inset 0 0 0 1px rgba(25,227,255,0.04)',
+        }}
+      >
+        <div
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+          style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, ${tilePx}px)`, gap: 'var(--tile-gap)', touchAction: 'manipulation' }}
+        >
+          {display.flatMap((row, r) =>
+            row.map((cell, c) => {
+              const t = toTile(cell);
+              const anim = anims[`${r}-${c}`];
+              return (
+                <Tile
+                  key={anim ? `${r}-${c}-a${anim.id}` : `${r}-${c}`}
+                  state={t.state}
+                  value={t.value}
+                  owner={t.owner}
+                  size={size}
+                  sizePx={tilePx}
+                  dataCell={`${r}-${c}`}
+                  className={anim ? ANIM_CLASS[anim.type] : undefined}
+                  style={anim?.delay ? { animationDelay: `${anim.delay}s` } : undefined}
+                  onClick={interactive ? () => {
+                    if (Date.now() - lastTouchRef.current < 600) return; // touch already handled it
+                    onCell(r, c);
+                  } : undefined}
+                  onContextMenu={(e) => { e.preventDefault(); if (interactive) onCellContext(r, c); }}
+                />
+              );
+            }),
+          )}
+        </div>
       </div>
     </div>
   );

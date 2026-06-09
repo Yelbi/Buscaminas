@@ -87,8 +87,13 @@ a { color: var(--neon-cyan); }
   background: none;
   border: none;
   padding: 0;
+  min-width: 0;
+  flex-shrink: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.app-bar__brand .mine-mark { color: var(--neon-cyan); filter: drop-shadow(0 0 8px var(--neon-cyan)); }
+.app-bar__brand .mine-mark { color: var(--neon-cyan); filter: drop-shadow(0 0 8px var(--neon-cyan)); flex-shrink: 0; }
 .app-bar__spacer { flex: 1; }
 
 /* ---- Hero / home ---- */
@@ -169,6 +174,15 @@ a { color: var(--neon-cyan); }
   padding: var(--sp-5) 0;
 }
 .board-scroll { max-width: 100%; overflow: auto; padding: var(--sp-2); }
+
+/* Centers the board, but scrolls (from the left edge) when it can't fit. */
+.board-fit {
+  width: 100%;
+  display: flex;
+  justify-content: safe center;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
 
 /* ---- Toast / system message ---- */
 .toast {
@@ -271,3 +285,46 @@ a { color: var(--neon-cyan); }
   100% { box-shadow: var(--shadow-lg), inset 0 0 0 1px rgba(25,227,255,0.04); }
 }
 .board-win { animation: board-win 1300ms var(--ease-out); }
+
+/* Touch ergonomics: no text selection / long-press callout / tap flash on the board */
+.game-board {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.game-board button { -webkit-tap-highlight-color: transparent; }
+
+/* ============================================================
+   Responsive — phones & small tablets
+   ============================================================ */
+@media (max-width: 720px) {
+  :root {
+    --fs-h1: 34px;
+    --fs-h2: 26px;
+    --fs-h3: 20px;
+    --fs-lg: 18px;
+    --fs-counter: 32px;
+    --fs-counter-lg: 40px;
+    --header-h: 56px;
+  }
+  .app-main { padding: var(--sp-4) var(--sp-3) var(--sp-7); }
+  .app-bar { padding: 0 var(--sp-3); gap: var(--sp-2); }
+  .hero { padding: var(--sp-4) 0 var(--sp-2); }
+  .hero__sub { font-size: var(--fs-body); max-width: 38ch; }
+  .panel { padding: var(--sp-4); }
+  .board-stage { gap: var(--sp-4); padding: var(--sp-3) 0; }
+  .board-scroll { padding: 0; }
+  .hud { gap: var(--sp-3); }
+}
+
+@media (max-width: 420px) {
+  :root { --fs-counter: 28px; --fs-counter-lg: 34px; }
+  .app-bar { gap: var(--sp-1); padding: 0 var(--sp-2); }
+  .app-main { padding: var(--sp-3) var(--sp-2) var(--sp-6); }
+  .hud { gap: var(--sp-2); }
+}
+
+/* Coarse pointers (touch): bigger comfortable hit area on controls */
+@media (hover: none) and (pointer: coarse) {
+  .app-bar__brand { font-size: var(--fs-body); }
+}

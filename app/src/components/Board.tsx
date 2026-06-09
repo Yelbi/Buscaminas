@@ -12,6 +12,8 @@ export interface BoardProps {
   cells?: BoardCell[][];
   size?: TileSize;
   framed?: boolean;
+  /** Explicit tile size in px (overrides the size preset) — used for responsive fit. */
+  tilePx?: number;
   onCell?: (r: number, c: number, e: MouseEvent<HTMLButtonElement>) => void;
   onCellContext?: (r: number, c: number, e: MouseEvent<HTMLButtonElement>) => void;
   style?: CSSProperties;
@@ -21,15 +23,15 @@ export interface BoardProps {
  * Board — a grid of Tiles rendered from a 2D cell array.
  * Each cell: { state, value, owner }. Purely presentational.
  */
-export function Board({ cells = [], size = 'md', framed = true, onCell, onCellContext, style = {} }: BoardProps) {
+export function Board({ cells = [], size = 'md', framed = true, tilePx, onCell, onCellContext, style = {} }: BoardProps) {
   const cols = cells[0]?.length || 0;
-  const tilePx = { sm: 28, md: 38, lg: 46 }[size] || 38;
+  const px = tilePx ?? ({ sm: 28, md: 38, lg: 46 }[size] || 38);
 
   const grid = (
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: `repeat(${cols}, ${tilePx}px)`,
+        gridTemplateColumns: `repeat(${cols}, ${px}px)`,
         gap: 'var(--tile-gap)',
       }}
     >
@@ -41,6 +43,7 @@ export function Board({ cells = [], size = 'md', framed = true, onCell, onCellCo
             value={cell.value}
             owner={cell.owner}
             size={size}
+            sizePx={tilePx}
             onClick={(e) => onCell && onCell(r, c, e)}
             onContextMenu={(e) => { e.preventDefault(); onCellContext && onCellContext(r, c, e); }}
           />

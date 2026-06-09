@@ -38,19 +38,17 @@ export function SoloGame({ difficulty, onMenu }: { difficulty: DifficultyId; onM
           : <Badge tone="neutral">Sin récord</Badge>}
       />
 
-      <div className="board-scroll">
-        <GameBoard
-          view={game.board}
-          size={cfg.tile}
-          interactive={playing}
-          gameKey={game.round}
-          finished={!playing}
-          outcome={outcome}
-          onSequenceDone={() => setSeqDone(true)}
-          onCell={handlers.onCell}
-          onCellContext={handlers.onCellContext}
-        />
-      </div>
+      <GameBoard
+        view={game.board}
+        size={cfg.tile}
+        interactive={playing}
+        gameKey={game.round}
+        finished={!playing}
+        outcome={outcome}
+        onSequenceDone={() => setSeqDone(true)}
+        onCell={handlers.onCell}
+        onCellContext={handlers.onCellContext}
+      />
 
       <GameControls
         flagMode={flagMode}

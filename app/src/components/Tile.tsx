@@ -19,6 +19,10 @@ export interface TileProps {
   onContextMenu?: (e: MouseEvent<HTMLButtonElement>) => void;
   style?: CSSProperties;
   className?: string;
+  /** Explicit tile size in px (overrides the size token) — used for responsive fit. */
+  sizePx?: number;
+  /** Value for the data-cell attribute (used for touch gesture delegation). */
+  dataCell?: string;
 }
 
 /**
@@ -33,8 +37,10 @@ export function Tile({
   onContextMenu,
   style = {},
   className,
+  sizePx,
+  dataCell,
 }: TileProps) {
-  const px = { sm: 'var(--tile-sm)', md: 'var(--tile-md)', lg: 'var(--tile-lg)' }[size];
+  const px = sizePx != null ? `${sizePx}px` : { sm: 'var(--tile-sm)', md: 'var(--tile-md)', lg: 'var(--tile-lg)' }[size];
   const ownerColor = owner === 'p1' ? 'var(--player-1)' : owner === 'p2' ? 'var(--player-2)' : null;
 
   const isHidden = state === 'hidden' || state === 'flagged';
@@ -73,6 +79,7 @@ export function Tile({
       onClick={onClick}
       onContextMenu={onContextMenu}
       className={className}
+      data-cell={dataCell}
       aria-label={
         state === 'flagged' ? 'Casilla con bandera'
           : state === 'hidden' ? 'Casilla oculta'
