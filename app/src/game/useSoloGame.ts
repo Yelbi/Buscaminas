@@ -35,7 +35,8 @@ export interface SoloApi {
 
 function build(st: GameState): Snap {
   return {
-    board: projectBoard(st, st.status !== 'playing'),
+    // Reveal mines only on a loss; on a win, leave them (correct flags stay flags).
+    board: projectBoard(st, st.status === 'lost'),
     status: st.status,
     flagsRemaining: flagsRemaining(st),
     revealed: st.revealed,

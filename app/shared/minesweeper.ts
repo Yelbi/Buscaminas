@@ -268,9 +268,16 @@ export function projectBoard(state: GameState, revealAll = false): BoardView {
   return state.cells.map((row) =>
     row.map((cell): import('./types').CellView => {
       if (cell.exploded) return { s: 'exploded' };
+      // Mines take precedence over `revealed` so that revealAllMines() (which sets
+      // revealed=true on every mine at game over) renders them as mines — not as
+      // empty revealed cells. During play mines stay hidden (revealAll=false).
+      if (cell.mine) {
+        if (cell.revealed || revealAll) return { s: 'mine' };
+        if (cell.flagged) return { s: 'flagged', by: cell.flaggedBy };
+        return { s: 'hidden' };
+      }
       if (cell.revealed) return { s: 'revealed', v: cell.adjacent, by: cell.revealedBy };
       if (cell.flagged) return { s: 'flagged', by: cell.flaggedBy };
-      if (revealAll && cell.mine) return { s: 'mine' };
       return { s: 'hidden' };
     }),
   );

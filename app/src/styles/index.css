@@ -314,7 +314,14 @@ a { color: var(--neon-cyan); }
   .panel { padding: var(--sp-4); }
   .board-stage { gap: var(--sp-4); padding: var(--sp-3) 0; }
   .board-scroll { padding: 0; }
+
+  /* Compact HUD: drop the "Minas/Tiempo" labels, tighten the readouts */
   .hud { gap: var(--sp-3); }
+  .ds-counter { align-items: center; }
+  .ds-counter__label { display: none; }
+  .ds-counter__box { padding: 3px 10px; gap: 5px; border-radius: var(--r-xs); }
+  .ds-counter__value { letter-spacing: 0.04em; }
+  .ds-counter__icon { font-size: 15px; }
 }
 
 @media (max-width: 420px) {
@@ -322,6 +329,7 @@ a { color: var(--neon-cyan); }
   .app-bar { gap: var(--sp-1); padding: 0 var(--sp-2); }
   .app-main { padding: var(--sp-3) var(--sp-2) var(--sp-6); }
   .hud { gap: var(--sp-2); }
+  .ds-counter__box { padding: 2px 8px; }
 }
 
 /* Coarse pointers (touch): bigger comfortable hit area on controls */

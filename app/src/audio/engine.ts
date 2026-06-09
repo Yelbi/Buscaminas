@@ -15,6 +15,7 @@ type Win = typeof window & { webkitAudioContext?: typeof AudioContext };
 
 const MUSIC_KEY = 'buscaminas.audio.music';
 const SFX_KEY = 'buscaminas.audio.sfx';
+const MUSIC_LEVEL = 0.5; // music bus gain (note gains are small, so this must be sizeable)
 
 function readPref(key: string, dflt: boolean): boolean {
   try { const v = localStorage.getItem(key); return v == null ? dflt : v === '1'; } catch { return dflt; }
@@ -56,8 +57,11 @@ class AudioEngine {
     this.master.connect(ctx.destination);
 
     this.musicGain = ctx.createGain();
-    this.musicGain.gain.value = this.musicEnabled ? 0.16 : 0;
-    this.musicGain.connect(this.master);
+    this.musicGain.gain.value = this.musicEnabled ? MUSIC_LEVEL : 0;
+    const warm = ctx.createBiquadFilter(); // soften the loop so it sits behind SFX
+    warm.type = 'lowpass';
+    warm.frequency.value = 2400;
+    this.musicGain.connect(warm).connect(this.master);
 
     this.sfxGain = ctx.createGain();
     this.sfxGain.gain.value = this.sfxEnabled ? 0.9 : 0;
@@ -84,7 +88,7 @@ class AudioEngine {
     if (this.ctx && this.musicGain) {
       const t = this.ctx.currentTime;
       this.musicGain.gain.cancelScheduledValues(t);
-      this.musicGain.gain.linearRampToValueAtTime(on ? 0.16 : 0, t + 0.25);
+      this.musicGain.gain.linearRampToValueAtTime(on ? MUSIC_LEVEL : 0, t + 0.25);
     }
     if (on) this.startMusic(); else this.stopMusic();
     this.emit();
@@ -190,13 +194,15 @@ class AudioEngine {
 
   /* ---- Music: subtle looping arcade bed ---- */
 
-  // 16-step patterns over a neon minor vibe. null = rest.
-  private bass = [110, null, 110, null, 146.83, null, 130.81, null, 98, null, 98, null, 130.81, null, 146.83, null];
-  private arp = [
-    440, 523.25, 659.25, 523.25, 587.33, 698.46, 587.33, 440,
-    392, 466.16, 587.33, 466.16, 523.25, 659.25, 523.25, 392,
+  // 16-step patterns over a neon minor vibe (Am–F–C–G feel). null = rest.
+  private bass: Array<number | null> = [
+    110, null, 110, 110, 87.31, null, 87.31, null, 130.81, null, 130.81, 130.81, 98, null, 98, null,
   ];
-  private readonly stepDur = 0.16; // ~ 94 BPM in 16ths
+  private arp = [
+    440, 523.25, 659.25, 880, 698.46, 523.25, 659.25, 880,
+    523.25, 659.25, 783.99, 1046.5, 587.33, 783.99, 987.77, 587.33,
+  ];
+  private readonly stepDur = 0.1515; // ~ 99 BPM in 16ths
 
   startMusic(): void {
     if (!this.ensure() || !this.ctx || this.musicTimer) return;
@@ -209,17 +215,22 @@ class AudioEngine {
     if (this.musicTimer) { clearInterval(this.musicTimer); this.musicTimer = null; }
   }
 
+  private kick(when: number): void {
+    this.tone({ freq: 155, slideTo: 46, dur: 0.14, type: 'sine', gain: 0.3, when, dest: this.musicGain ?? undefined });
+  }
+
   private scheduler(): void {
     if (!this.ctx || !this.musicGain) return;
     const lookahead = 0.12;
     while (this.nextNoteTime < this.ctx.currentTime + lookahead) {
       const s = this.step % 16;
       const when = this.nextNoteTime;
+      if (s % 4 === 0) this.kick(when);                      // soft pulse on quarter notes
       const b = this.bass[s];
-      if (b) this.tone({ freq: b, dur: this.stepDur * 1.6, type: 'sawtooth', gain: 0.05, when, dest: this.musicGain });
+      if (b) this.tone({ freq: b, dur: this.stepDur * 1.7, type: 'sawtooth', gain: 0.16, when, dest: this.musicGain });
       if (s % 2 === 0) {
         const a = this.arp[this.step % this.arp.length];
-        if (a) this.tone({ freq: a, dur: this.stepDur * 0.9, type: 'triangle', gain: 0.04, when, dest: this.musicGain });
+        if (a) this.tone({ freq: a, dur: this.stepDur * 0.85, type: 'triangle', gain: 0.12, when, dest: this.musicGain });
       }
       this.nextNoteTime += this.stepDur;
       this.step++;

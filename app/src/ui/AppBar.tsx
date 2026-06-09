@@ -5,8 +5,7 @@ export function AppBar({ onBrandClick, right }: { onBrandClick?: () => void; rig
   return (
     <header className="app-bar">
       <button type="button" className="app-bar__brand" onClick={onBrandClick} aria-label="Inicio">
-        <span className="mine-mark" aria-hidden>✸</span>
-        Busca<span style={{ color: 'var(--neon-magenta)' }}>minas</span>
+        <span className="app-bar__word">Busca<span style={{ color: 'var(--neon-magenta)' }}>minas</span></span>
       </button>
       <span className="app-bar__spacer" />
       {right}

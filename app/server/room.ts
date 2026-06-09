@@ -266,7 +266,7 @@ export class Room {
       return {
         phase: finished ? 'finished' : 'playing',
         status: st.status,
-        board: projectBoard(st, finished),
+        board: projectBoard(st, st.status === 'lost'),
         flagsRemaining: flagsRemaining(st),
         elapsedMs: this.elapsed(),
         scores,
@@ -280,8 +280,8 @@ export class Room {
     return {
       phase: finished ? 'finished' : 'playing',
       status: mine.status,
-      board: projectBoard(mine, finished),
-      opponentBoard: other ? projectBoard(other, finished) : undefined,
+      board: projectBoard(mine, mine.status === 'lost'),
+      opponentBoard: other ? projectBoard(other, other.status === 'lost') : undefined,
       flagsRemaining: flagsRemaining(mine),
       elapsedMs: this.elapsed(),
       scores,

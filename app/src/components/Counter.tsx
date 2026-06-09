@@ -28,13 +28,14 @@ export function Counter({ value = 0, digits = 3, tone = 'cyan', label = null, ic
   const text = String(Math.max(0, value)).padStart(digits, '0').slice(-digits);
 
   return (
-    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px', ...style }}>
+    <div className="ds-counter" style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px', ...style }}>
       {label && (
-        <span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-xs)', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-mid)' }}>
+        <span className="ds-counter__label" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-xs)', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-mid)' }}>
           {label}
         </span>
       )}
       <div
+        className="ds-counter__box"
         style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -46,8 +47,9 @@ export function Counter({ value = 0, digits = 3, tone = 'cyan', label = null, ic
           boxShadow: `inset 0 0 14px color-mix(in srgb, ${c} 12%, transparent)`,
         }}
       >
-        {icon && <span style={{ color: c, display: 'inline-flex', filter: `drop-shadow(0 0 6px ${c})` }}>{icon}</span>}
+        {icon && <span className="ds-counter__icon" style={{ color: c, display: 'inline-flex', filter: `drop-shadow(0 0 6px ${c})` }}>{icon}</span>}
         <span
+          className="ds-counter__value"
           style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 'var(--fs-counter)',
