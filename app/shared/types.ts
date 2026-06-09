@@ -20,7 +20,8 @@ export interface DifficultyConfig {
 export const DIFFICULTIES: Record<DifficultyId, DifficultyConfig> = {
   facil: { id: 'facil', label: 'Fácil', rows: 9, cols: 9, mines: 10, tile: 'lg' },
   medio: { id: 'medio', label: 'Medio', rows: 16, cols: 16, mines: 40, tile: 'md' },
-  dificil: { id: 'dificil', label: 'Difícil', rows: 16, cols: 30, mines: 99, tile: 'sm' },
+  // Square board (22×22, same ~20.5% mine density as classic expert).
+  dificil: { id: 'dificil', label: 'Difícil', rows: 22, cols: 22, mines: 99, tile: 'sm' },
 };
 
 export const DIFFICULTY_ORDER: DifficultyId[] = ['facil', 'medio', 'dificil'];

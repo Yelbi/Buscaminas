@@ -7,7 +7,7 @@
 
 :root {
   /* ---- Families ---- */
-  --font-display: 'Pixelify Sans', 'Space Grotesk', system-ui, sans-serif;
+  --font-display: 'Tiny5', 'Space Grotesk', system-ui, sans-serif;
   --font-body:    'Space Grotesk', system-ui, -apple-system, sans-serif;
   --font-mono:    'VT323', ui-monospace, 'SF Mono', monospace;
 

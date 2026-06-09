@@ -31,7 +31,6 @@ export function Home({
   return (
     <div className="stack pop-in" style={{ gap: 'var(--sp-6)' }}>
       <div className="hero">
-        <span className="eyebrow">Arcade · Neon · Campo minado</span>
         <h1 className="hero__title">Busca<span className="accent">minas</span></h1>
         <p className="hero__sub">Despeja el campo sin pisar una mina. Juega en solitario, en equipo o reta a un rival en tiempo real.</p>
       </div>
