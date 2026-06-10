@@ -5,7 +5,7 @@ export function HowToPlay() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button variant="ghost" size="sm" onClick={() => setOpen(true)} iconLeft={<span aria-hidden>?</span>}>
+      <Button variant="ghost" size="sm" onClick={() => setOpen(true)} iconLeft>
         ¿Cómo se juega?
       </Button>
       {open && (

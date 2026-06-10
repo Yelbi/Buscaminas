@@ -59,7 +59,7 @@ export function Home({
             value={name}
             maxLength={20}
             onChange={(e) => onName(e.target.value)}
-            style={{ minWidth: 200, flex: '1 1 240px' }}
+            style={{ minWidth: 200 }}
           />
           <div className="stack seg-wrap" style={{ gap: 'var(--sp-2)' }}>
             <span className="section-label" style={{ margin: 0 }}>Dificultad</span>
