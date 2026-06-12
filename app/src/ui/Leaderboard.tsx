@@ -32,7 +32,7 @@ export function Leaderboard({ playerName }: { playerName?: string }) {
   const load = useCallback(async (d: PresetId, signal: AbortSignal) => {
     setStatus('loading');
     try {
-      const res = await fetchTop(d, 15);
+      const res = await fetchTop(d, 15, signal);
       if (signal.aborted) return;
       if (!res.enabled) { setStatus('disabled'); setEntries([]); return; }
       setEntries(res.entries);

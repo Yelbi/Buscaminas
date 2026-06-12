@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 
 export type DialogTone = 'cyan' | 'magenta' | 'lime' | 'red';
@@ -23,6 +24,18 @@ export function Dialog({ title, eyebrow = null, tone = 'cyan', children, footer 
     : tone === 'red' ? 'var(--neon-red)'
     : 'var(--neon-cyan)';
 
+  // Move focus into the modal when it opens (keyboard / screen-reader users).
+  const panelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { panelRef.current?.focus(); }, []);
+
+  // Escape closes (same as clicking the scrim).
+  useEffect(() => {
+    if (!onClose) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   return (
     <div
       onClick={onClose}
@@ -38,9 +51,12 @@ export function Dialog({ title, eyebrow = null, tone = 'cyan', children, footer 
       }}
     >
       <div
+        ref={panelRef}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         className="pop-in"
         style={{
+          outline: 'none',
           width: '100%', maxWidth: width,
           background: 'linear-gradient(180deg, var(--surface-2), var(--surface-1))',
           border: `2px solid color-mix(in srgb, ${c} 50%, transparent)`,

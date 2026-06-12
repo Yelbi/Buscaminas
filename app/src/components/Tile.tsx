@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { CSSProperties, MouseEvent } from 'react';
 
 export type TileState = 'hidden' | 'revealed' | 'flagged' | 'mine' | 'exploded';
@@ -27,8 +28,10 @@ export interface TileProps {
 
 /**
  * Tile — a single Minesweeper cell. The signature component.
+ * Memoized: large boards re-render often (every snapshot/clock tick), and most
+ * tiles don't change between renders.
  */
-export function Tile({
+export const Tile = memo(function Tile({
   state = 'hidden',
   value = 0,
   size = 'md',
@@ -120,4 +123,4 @@ export function Tile({
       )}
     </button>
   );
-}
+});

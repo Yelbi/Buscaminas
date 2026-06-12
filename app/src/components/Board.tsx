@@ -44,8 +44,10 @@ export function Board({ cells = [], size = 'md', framed = true, tilePx, onCell, 
             owner={cell.owner}
             size={size}
             sizePx={tilePx}
-            onClick={(e) => onCell && onCell(r, c, e)}
-            onContextMenu={(e) => { e.preventDefault(); onCellContext && onCellContext(r, c, e); }}
+            // Only allocate handlers when the board is interactive — passing
+            // stable `undefined` lets memoized Tiles skip re-rendering.
+            onClick={onCell ? (e) => onCell(r, c, e) : undefined}
+            onContextMenu={onCellContext ? (e) => { e.preventDefault(); onCellContext(r, c, e); } : undefined}
           />
         )),
       )}

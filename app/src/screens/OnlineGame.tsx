@@ -47,6 +47,13 @@ export function OnlineGame({
   const outcome = game.status === 'won' ? 'win' : game.status === 'lost' ? 'lose' : null;
   const handlers = boardHandlers(game.board, flagMode, api);
 
+  // Matches that end without a board outcome (e.g. a co-op partner forfeits:
+  // the shared board never reaches won/lost) have no end animation, so the
+  // GameBoard sequence never fires — show the result dialog directly.
+  useEffect(() => {
+    if (game.phase === 'finished' && !outcome) setSeqDone(true);
+  }, [game.phase, outcome]);
+
   const finished = game.phase === 'finished' && !!game.result;
   const youWon = game.result
     ? (game.result.winner ? game.result.winner === you : game.result.outcome === 'win')

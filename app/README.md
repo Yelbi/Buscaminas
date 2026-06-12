@@ -77,10 +77,21 @@ app/
   flag the same field; cells are tinted by who revealed them. You win or lose together.
 - **Competitivo** — both players get the **same** board (one seed → identical mine
   layout, so it's a fair race). First to clear all safe cells wins; pisar una mina = pierdes.
-  The opponent's masked board is shown live as a progress mini-map.
+  The opponent's board is shown live as a progress mini-map, **masked** while the
+  match is running: since both boards share one layout, the mini-map carries no
+  numbers and no flag positions (they would reveal your own mines), only which
+  cells are open. The full board is sent once the match ends.
 
 The server is **authoritative**: it owns the mine layout and never sends hidden
 cells to clients (anti-cheat), only render-safe projections.
+
+### Known limitations
+
+- `POST /api/score` is open by design (solo times are measured client-side), so
+  global-leaderboard entries are trust-based. Versus wins are submitted by the
+  server itself.
+- The leaderboard keys entries by player name: two players using the same name
+  share one entry (the best time wins).
 
 ## Difficulties
 
@@ -88,7 +99,9 @@ cells to clients (anti-cheat), only render-safe projections.
 | --- | --- | --- | --- |
 | Fácil | 9×9 | 10 | grande |
 | Medio | 16×16 | 40 | media |
-| Difícil | 16×30 | 99 | pequeña |
+| Difícil | 22×22 | 99 | pequeña |
+
+También hay una dificultad **Personalizada** (5–40 filas/columnas, minas libres).
 
 ## Controls
 

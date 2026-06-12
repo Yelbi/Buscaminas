@@ -70,11 +70,16 @@ export type ServerMsg =
   | { t: 'joined'; code: string; you: PlayerSlotId; mode: GameMode; difficulty: DifficultyId; token: string }
   | { t: 'room'; room: RoomSnapshot }
   | { t: 'game'; game: GameSnapshot }
+  /** Lightweight clock update between full game snapshots. */
+  | { t: 'tick'; elapsedMs: number }
   | { t: 'peerLeft'; slot: PlayerSlotId }
   | { t: 'pong' };
 
-/** Opaque per-player reconnect token. */
+/** Opaque per-player reconnect token (unguessable — guards slot hijacking). */
 export function makeReconnectToken(): string {
+  const c = globalThis.crypto;
+  if (c && typeof c.randomUUID === 'function') return c.randomUUID();
+  // Last-resort fallback for environments without WebCrypto.
   return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
 }
 

@@ -26,8 +26,11 @@ const TONES: Record<CounterTone, string> = {
 export function Counter({ value = 0, digits = 3, tone = 'cyan', label = null, icon = null, style = {} }: CounterProps) {
   const c = TONES[tone] || TONES.cyan;
   // Zero-pad to `digits`, but never truncate larger values (e.g. custom boards
-  // with >999 mines, or timers past 999s).
-  const text = String(Math.max(0, Math.round(value))).padStart(digits, '0');
+  // with >999 mines, or timers past 999s). Negative values keep their sign
+  // (classic minesweeper shows "-02" when you over-flag).
+  const n = Math.round(value);
+  const neg = n < 0;
+  const text = (neg ? '-' : '') + String(Math.abs(n)).padStart(Math.max(1, digits - (neg ? 1 : 0)), '0');
 
   return (
     <div className="ds-counter" style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px', ...style }}>

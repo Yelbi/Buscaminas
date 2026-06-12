@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { TouchEvent as ReactTouchEvent } from 'react';
+import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from 'react';
 import { Tile } from '../components/Tile';
 import type { Owner, TileSize, TileState } from '../components/Tile';
 import type { BoardView, CellView } from '../../shared/types';
@@ -73,12 +73,26 @@ export function GameBoard({
   const addTimer = (fn: () => void, ms: number) => { timersRef.current.push(setTimeout(fn, ms)); };
   const clearTimers = () => { timersRef.current.forEach(clearTimeout); timersRef.current = []; };
 
-  const pushAnim = (key: string, type: AnimType, delay = 0, cleanup = true) => {
-    const id = ++idRef.current;
-    setAnims((p) => ({ ...p, [key]: { type, id, delay } }));
-    // Cascade explosions skip per-cell cleanup (board is frozen until reset),
-    // which avoids scheduling thousands of timers on huge custom boards.
-    if (cleanup) addTimer(() => setAnims((p) => { const n = { ...p }; delete n[key]; return n; }), 600 + delay * 1000);
+  /** Queue a batch of cell animations with ONE state update and ONE cleanup
+      timer — a big flood fill animates hundreds of cells at once, and doing
+      this per cell would mean O(n²) object copies plus n timers. */
+  const pushAnims = (entries: Array<[key: string, type: AnimType, delay?: number]>, cleanup = true) => {
+    if (!entries.length) return;
+    const add: Record<string, AnimEntry> = {};
+    let maxDelay = 0;
+    for (const [key, type, delay = 0] of entries) {
+      add[key] = { type, id: ++idRef.current, delay };
+      if (delay > maxDelay) maxDelay = delay;
+    }
+    setAnims((p) => ({ ...p, ...add }));
+    // Cascade explosions skip cleanup (board is frozen until reset).
+    if (cleanup) {
+      addTimer(() => setAnims((p) => {
+        const n = { ...p };
+        for (const k of Object.keys(add)) delete n[k];
+        return n;
+      }), 600 + maxDelay * 1000);
+    }
   };
 
   // Reset everything when a new game/match starts.
@@ -102,14 +116,15 @@ export function GameBoard({
     if (finished) return;
 
     const revealed: Array<[number, number]> = [];
+    const entries: Array<[string, AnimType, number?]> = [];
     let flagOn = 0, flagOff = 0;
     for (let r = 0; r < view.length; r++) {
       for (let c = 0; c < view[r].length; c++) {
         const a = prev[r]?.[c]; const b = view[r][c];
         if (!a) continue;
         if (a.s !== 'revealed' && b.s === 'revealed') revealed.push([r, c]);
-        else if (a.s !== 'flagged' && b.s === 'flagged') { pushAnim(`${r}-${c}`, 'flagOn'); flagOn++; }
-        else if (a.s === 'flagged' && b.s === 'hidden') { pushAnim(`${r}-${c}`, 'flagOff'); flagOff++; }
+        else if (a.s !== 'flagged' && b.s === 'flagged') { entries.push([`${r}-${c}`, 'flagOn']); flagOn++; }
+        else if (a.s === 'flagged' && b.s === 'hidden') { entries.push([`${r}-${c}`, 'flagOff']); flagOff++; }
       }
     }
     if (revealed.length) {
@@ -117,9 +132,10 @@ export function GameBoard({
       const ox = revealed.reduce((s, [, c]) => s + c, 0) / revealed.length;
       for (const [r, c] of revealed) {
         const d = Math.hypot(r - oy, c - ox);
-        pushAnim(`${r}-${c}`, 'reveal', Math.min(0.32, d * 0.018));
+        entries.push([`${r}-${c}`, 'reveal', Math.min(0.32, d * 0.018)]);
       }
     }
+    pushAnims(entries);
     if (flagOn) audio.play('flagOn');
     if (flagOff) audio.play('flagOff');
     if (revealed.length === 1) audio.play('reveal');
@@ -158,7 +174,7 @@ export function GameBoard({
     audio.play('bigExplode');
     setShake(true);
     addTimer(() => setShake(false), 520);
-    if (exploded) pushAnim(`${exploded[0]}-${exploded[1]}`, 'explodeBig');
+    if (exploded) pushAnims([[`${exploded[0]}-${exploded[1]}`, 'explodeBig']]);
     setSeqStep(0);
 
     // Detonate in capped batches: total time stays ~≤2.2s and the number of
@@ -172,7 +188,9 @@ export function GameBoard({
     const interval = setInterval(() => {
       const start = i;
       const end = Math.min(total, i + perTick);
-      for (; i < end; i++) pushAnim(`${mines[i][0]}-${mines[i][1]}`, 'explode', 0, false);
+      const batch: Array<[string, AnimType, number?]> = [];
+      for (; i < end; i++) batch.push([`${mines[i][0]}-${mines[i][1]}`, 'explode']);
+      pushAnims(batch, false);
       if (end > start) audio.play('explode');
       setSeqStep(i);
       if (i >= total) {
@@ -200,14 +218,33 @@ export function GameBoard({
     }));
   }, [view, finished, outcome, seqStep]);
 
-  /* ---- Touch: tap to reveal, long-press to flag ---- */
-  const cellFromTouch = (e: ReactTouchEvent): { r: number; c: number } | null => {
-    const btn = (e.target as HTMLElement).closest('button[data-cell]') as HTMLElement | null;
+  /* ---- Input: events are delegated to the grid container (one handler for
+     the whole board instead of a closure per tile, so memoized tiles only
+     re-render when their cell actually changes). ---- */
+  const cellFromTarget = (target: EventTarget | null): { r: number; c: number } | null => {
+    const btn = (target as HTMLElement | null)?.closest?.('button[data-cell]') as HTMLElement | null;
     const cell = btn?.dataset.cell;
     if (!cell) return null;
     const [r, c] = cell.split('-').map(Number);
     return { r, c };
   };
+
+  const onGridClick = (e: ReactMouseEvent) => {
+    if (!interactive) return;
+    if (Date.now() - lastTouchRef.current < 600) return; // touch already handled it
+    const cell = cellFromTarget(e.target);
+    if (cell) onCell(cell.r, cell.c);
+  };
+
+  const onGridContext = (e: ReactMouseEvent) => {
+    e.preventDefault();
+    if (!interactive) return;
+    const cell = cellFromTarget(e.target);
+    if (cell) onCellContext(cell.r, cell.c);
+  };
+
+  /* ---- Touch: tap to reveal, long-press to flag ---- */
+  const cellFromTouch = (e: ReactTouchEvent): { r: number; c: number } | null => cellFromTarget(e.target);
   const onTouchStart = (e: ReactTouchEvent) => {
     if (!interactive) return;
     const cell = cellFromTouch(e);
@@ -250,6 +287,8 @@ export function GameBoard({
         }}
       >
         <div
+          onClick={onGridClick}
+          onContextMenu={onGridContext}
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
@@ -270,11 +309,6 @@ export function GameBoard({
                   dataCell={`${r}-${c}`}
                   className={anim ? ANIM_CLASS[anim.type] : undefined}
                   style={anim?.delay ? { animationDelay: `${anim.delay}s` } : undefined}
-                  onClick={interactive ? () => {
-                    if (Date.now() - lastTouchRef.current < 600) return; // touch already handled it
-                    onCell(r, c);
-                  } : undefined}
-                  onContextMenu={(e) => { e.preventDefault(); if (interactive) onCellContext(r, c); }}
                 />
               );
             }),

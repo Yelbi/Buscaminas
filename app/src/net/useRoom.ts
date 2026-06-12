@@ -74,6 +74,12 @@ export function useRoom(): RoomApi {
       case 'game':
         patch({ game: msg.game });
         break;
+      case 'tick':
+        // Clock-only update between full snapshots.
+        setState((s) => (s.game && s.game.phase === 'playing'
+          ? { ...s, game: { ...s.game, elapsedMs: msg.elapsedMs } }
+          : s));
+        break;
       case 'error':
         if (msg.code === 'NO_REJOIN' || msg.code === 'NO_ROOM') {
           tokenRef.current = null; codeRef.current = null;
@@ -90,7 +96,8 @@ export function useRoom(): RoomApi {
     }
   }, [patch]);
 
-  const onClose = useCallback(() => {
+  const onClose = useCallback((ws: WebSocket) => {
+    if (wsRef.current !== ws) return; // stale socket — a newer one is already active
     patch({ status: 'closed' });
     if (leavingRef.current || !tokenRef.current || !codeRef.current) return; // not in a room / intentional
     attemptsRef.current += 1;
@@ -105,6 +112,13 @@ export function useRoom(): RoomApi {
 
   const connect = useCallback((rejoin: boolean) => {
     if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
+    // Never leave an orphaned socket with live handlers behind.
+    const prev = wsRef.current;
+    if (prev) {
+      prev.onclose = null;
+      prev.onmessage = null;
+      try { prev.close(); } catch { /* already closed */ }
+    }
     patch({ status: 'connecting', error: null });
     const ws = new WebSocket(wsUrl());
     wsRef.current = ws;
@@ -119,7 +133,7 @@ export function useRoom(): RoomApi {
       flush();
     };
     ws.onmessage = (e) => onMessage(typeof e.data === 'string' ? e.data : '');
-    ws.onclose = () => onClose();
+    ws.onclose = () => onClose(ws);
     ws.onerror = () => { /* surfaced via onclose */ };
   }, [patch, flush, onMessage, onClose]);
 

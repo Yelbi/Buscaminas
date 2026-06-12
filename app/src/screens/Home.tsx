@@ -141,7 +141,7 @@ export function Home({
         <form
           className="row wrap"
           style={{ gap: 'var(--sp-3)', alignItems: 'flex-end' }}
-          onSubmit={(e) => { e.preventDefault(); if (multiplayerEnabled && code.trim().length >= 4) onJoin(code); }}
+          onSubmit={(e) => { e.preventDefault(); if (multiplayerEnabled && code.trim().length === 5) onJoin(code); }}
         >
           <Input
             label="Código de sala"
@@ -150,10 +150,10 @@ export function Home({
             value={code}
             placeholder="XXXXX"
             disabled={!multiplayerEnabled}
-            onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
+            onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5))}
             style={{ minWidth: 200 }}
           />
-          <Button type="submit" variant="secondary" disabled={!multiplayerEnabled || busy || code.trim().length < 4}>Unirse</Button>
+          <Button type="submit" variant="secondary" disabled={!multiplayerEnabled || busy || code.trim().length !== 5}>Unirse</Button>
         </form>
         {!multiplayerEnabled && (
           <p style={{ color: 'var(--text-dim)', fontSize: 'var(--fs-sm)', margin: '12px 0 0' }}>

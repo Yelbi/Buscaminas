@@ -49,11 +49,20 @@ function broadcastGame(room: Room): void {
   }
 }
 
+/** Clock-only update: full snapshots go out on every action, so the 1s tick
+    doesn't need to re-send (and force re-render of) the whole board. */
+function broadcastTick(room: Room): void {
+  const msg: ServerMsg = { t: 'tick', elapsedMs: room.elapsed() };
+  for (const p of room.players.values()) {
+    if (p.connected) send(p.ws, msg);
+  }
+}
+
 function startTick(room: Room): void {
   room.stopTick();
   room.tick = setInterval(() => {
     if (room.phase !== 'playing') { room.stopTick(); return; }
-    broadcastGame(room);
+    broadcastTick(room);
   }, 1000);
 }
 
@@ -74,6 +83,9 @@ function handle(ws: WebSocket, msg: ClientMsg): void {
     case 'create': {
       if (msg.mode !== 'coop' && msg.mode !== 'versus') return err(ws, 'Modo no válido para multijugador.');
       if (msg.difficulty !== 'custom' && !DIFFICULTIES[msg.difficulty]) return err(ws, 'Dificultad no válida.');
+      // A socket can only sit in one room: drop any previous seat so the old
+      // room doesn't keep a forever-"connected" ghost player.
+      detachFromRoom(ws);
       let code = makeRoomCode();
       while (rooms.has(code)) code = makeRoomCode();
       const newRoom = new Room(code, msg.mode, msg.difficulty, msg.custom);
@@ -88,10 +100,12 @@ function handle(ws: WebSocket, msg: ClientMsg): void {
 
     case 'join': {
       const code = String(msg.code ?? '').trim().toUpperCase();
+      if (ctx?.code === code) return err(ws, 'Ya estás en esta sala.');
       const target = rooms.get(code);
       if (!target) return err(ws, 'No existe una sala con ese código.', 'NO_ROOM');
       if (target.phase !== 'lobby') return err(ws, 'La partida ya está en curso.', 'IN_PROGRESS');
       if (!target.freeSlot()) return err(ws, 'La sala está llena.', 'FULL');
+      detachFromRoom(ws); // leave any previous room before taking the new seat
       const player = target.addPlayer(ws, cleanName(msg.name));
       if (!player) return err(ws, 'La sala está llena.', 'FULL');
       ctxOf.set(ws, { code, slot: player.slot });
@@ -106,6 +120,7 @@ function handle(ws: WebSocket, msg: ClientMsg): void {
       if (!target) return err(ws, 'La sala ya no existe.', 'NO_ROOM');
       const player = target.playerByToken(String(msg.token ?? ''));
       if (!player) return err(ws, 'No se pudo reconectar a la sala.', 'NO_REJOIN');
+      if (ctx && ctx.code !== code) detachFromRoom(ws); // seated elsewhere — vacate first
       // Detach any previous socket for this slot, then attach the new one.
       const oldWs = player.ws;
       if (oldWs && oldWs !== ws) { ctxOf.delete(oldWs); try { oldWs.close(); } catch { /* ignore */ } }
@@ -155,6 +170,8 @@ function handle(ws: WebSocket, msg: ClientMsg): void {
 
     case 'rematch': {
       if (!room || !ctx) return;
+      // Only after the match ended — otherwise a client could wipe a live game.
+      if (room.phase !== 'finished') return;
       room.resetToLobby();
       broadcastRoom(room);
       return;
@@ -172,7 +189,9 @@ function handle(ws: WebSocket, msg: ClientMsg): void {
   }
 }
 
-const GRACE_MS = 25_000; // window to reconnect after an unexpected disconnect
+// Window to reconnect after an unexpected disconnect. Must outlast the
+// client's retry schedule (8 attempts, exponential backoff ≈ 40s total).
+const GRACE_MS = 45_000;
 
 /** Versus winner's clear time goes to the global leaderboard (preset boards only). */
 function maybeSubmitVersusScore(room: Room): void {
@@ -184,6 +203,17 @@ function maybeSubmitVersusScore(room: Room): void {
   const p = room.players.get(winner);
   if (!p) return;
   void submitScore(d, p.name, room.result.timeMs);
+}
+
+/** Remove this socket's player from its current room, if any (no goodbye snapshot). */
+function detachFromRoom(ws: WebSocket): void {
+  const ctx = ctxOf.get(ws);
+  if (!ctx) return;
+  ctxOf.delete(ws);
+  const room = rooms.get(ctx.code);
+  const player = room?.players.get(ctx.slot);
+  if (!room || !player || player.ws !== ws) return; // a newer socket took the slot
+  removeNow(room, ctx.slot);
 }
 
 /** Actually remove a player (forfeit if mid-game), promote host, delete empty room. */
@@ -338,23 +368,39 @@ const httpServer = createServer((req, res) => {
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
   .split(',').map((s) => s.trim()).filter(Boolean);
 
-const wss = new WebSocketServer({
-  server: httpServer,
-  verifyClient: allowedOrigins.length
-    ? (info, done) => {
-        const origin = info.origin || info.req.headers.origin || '';
-        done(allowedOrigins.includes(origin));
-      }
-    : undefined,
-});
+// Client messages are tiny JSON (a name + coordinates at most) — cap the frame
+// size so a hostile client can't buffer megabytes server-side.
+const wss = new WebSocketServer({ server: httpServer, maxPayload: 4 * 1024 });
+
+// Per-socket message budget: gameplay is human clicks, so this is generous.
+// Messages over budget are silently dropped until the window resets.
+const MSG_WINDOW_MS = 4_000;
+const MSG_MAX_PER_WINDOW = 100;
+const msgBudget = new WeakMap<WebSocket, { count: number; resetAt: number }>();
+function overMessageBudget(ws: WebSocket): boolean {
+  const now = Date.now();
+  let b = msgBudget.get(ws);
+  if (!b || now >= b.resetAt) {
+    b = { count: 0, resetAt: now + MSG_WINDOW_MS };
+    msgBudget.set(ws, b);
+  }
+  b.count++;
+  return b.count > MSG_MAX_PER_WINDOW;
+}
 
 // Heartbeat: detect half-open sockets and terminate them (→ close → grace).
 const alive = new WeakMap<WebSocket, boolean>();
 
-wss.on('connection', (ws: WebSocket) => {
+wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
+  // Origin check (replaces the deprecated `verifyClient` option).
+  if (allowedOrigins.length) {
+    const origin = req.headers.origin || '';
+    if (!allowedOrigins.includes(origin)) { ws.close(1008, 'origin not allowed'); return; }
+  }
   alive.set(ws, true);
   ws.on('pong', () => alive.set(ws, true));
   ws.on('message', (data) => {
+    if (overMessageBudget(ws)) return;
     const msg = decode<ClientMsg>(data.toString());
     if (!msg || typeof msg.t !== 'string') return;
     try {

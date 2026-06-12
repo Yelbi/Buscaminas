@@ -9,6 +9,7 @@ import {
   createState,
   flagAllMines,
   flagsRemaining,
+  maskBoard,
   projectBoard,
   populateFromSeed,
   randomSeed,
@@ -31,7 +32,6 @@ export interface Player {
   ready: boolean;
   isHost: boolean;
   score: number;
-  wantsRematch: boolean;
   token: string;                                    // secret for reconnecting
   graceTimer: ReturnType<typeof setTimeout> | null; // pending removal after disconnect
 }
@@ -82,7 +82,7 @@ export class Room {
     const isHost = this.players.size === 0;
     const player: Player = {
       ws, slot, name: name || (slot === 'p1' ? 'Jugador 1' : 'Jugador 2'),
-      connected: true, ready: false, isHost, score: 0, wantsRematch: false,
+      connected: true, ready: false, isHost, score: 0,
       token: makeReconnectToken(), graceTimer: null,
     };
     this.players.set(slot, player);
@@ -125,7 +125,7 @@ export class Room {
     this.result = null;
     this.startedAt = Date.now();
     this.phase = 'playing';
-    for (const p of this.players.values()) { p.score = 0; p.wantsRematch = false; }
+    for (const p of this.players.values()) p.score = 0;
 
     if (this.mode === 'coop') {
       // One shared board, first-click safe (mines placed on first reveal).
@@ -151,7 +151,7 @@ export class Room {
     this.boards.clear();
     this.result = null;
     this.startedAt = 0;
-    for (const p of this.players.values()) { p.ready = false; p.wantsRematch = false; p.score = 0; }
+    for (const p of this.players.values()) { p.ready = false; p.score = 0; }
     this.stopTick();
   }
 
@@ -309,7 +309,11 @@ export class Room {
       phase: finished ? 'finished' : 'playing',
       status: mine.status,
       board: projectBoard(mine, mine.status === 'lost'),
-      opponentBoard: other ? projectBoard(other, other.status === 'lost') : undefined,
+      // While playing, the opponent view is masked (progress only): both versus
+      // boards share one layout, so numbers/flags would leak the viewer's mines.
+      opponentBoard: other
+        ? (finished ? projectBoard(other, other.status === 'lost') : maskBoard(other))
+        : undefined,
       flagsRemaining: flagsRemaining(mine),
       elapsedMs: this.elapsed(),
       scores,

@@ -240,7 +240,7 @@ export function chord(state: GameState, r: number, c: number, by: PlayerSlotId |
     const res = reveal(state, nr, nc, by);
     acc.changed = acc.changed || res.changed;
     acc.hitMine = acc.hitMine || res.hitMine;
-    acc.won = res.won;
+    acc.won = acc.won || res.won;
     if (res.hitMine) break;
   }
   return acc;
@@ -292,6 +292,22 @@ export function projectBoard(state: GameState, revealAll = false): BoardView {
       if (cell.flagged) return { s: 'flagged', by: cell.flaggedBy };
       return { s: 'hidden' };
     }),
+  );
+}
+
+/**
+ * Versus mini-map projection: progress shape only. Both versus boards share the
+ * same mine layout, so the opponent's numbers and flag positions would reveal
+ * the viewer's own board — this projection strips both (revealed cells carry
+ * v:0, flags render as hidden).
+ */
+export function maskBoard(state: GameState): BoardView {
+  return state.cells.map((row) =>
+    row.map((cell): import('./types').CellView =>
+      cell.revealed && !cell.mine
+        ? { s: 'revealed', v: 0, by: cell.revealedBy }
+        : { s: 'hidden' },
+    ),
   );
 }
 
