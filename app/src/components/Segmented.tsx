@@ -20,6 +20,7 @@ export function Segmented({ options = [], value, onChange, tone = 'cyan', style 
   return (
     <div
       role="tablist"
+      className="ds-segmented"
       style={{
         display: 'inline-flex',
         padding: 4,
@@ -39,6 +40,7 @@ export function Segmented({ options = [], value, onChange, tone = 'cyan', style 
             key={val}
             type="button"
             role="tab"
+            className="ds-segmented__opt"
             aria-selected={sel}
             onClick={() => onChange && onChange(val)}
             style={{

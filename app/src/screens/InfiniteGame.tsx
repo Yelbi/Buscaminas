@@ -15,14 +15,15 @@ function ClockIcon() {
   );
 }
 
-/** Marcador de vidas con el mismo lenguaje visual que Counter. */
+/** Marcador de vidas con el mismo lenguaje visual (y clases responsive) que Counter. */
 function Lives({ lives, max }: { lives: number; max: number }) {
   return (
-    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-      <span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-xs)', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-mid)' }}>
+    <div className="ds-counter" style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+      <span className="ds-counter__label" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-xs)', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-mid)' }}>
         Vidas
       </span>
       <div
+        className="ds-counter__box"
         aria-label={`${lives} de ${max} vidas`}
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px',

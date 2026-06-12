@@ -374,6 +374,23 @@ a { color: var(--neon-cyan); }
 @media (max-width: 640px) {
   .split { flex-direction: column; align-items: stretch; gap: var(--sp-4); }
   .split .seg-wrap { width: 100%; }
+
+  /* Selector segmentado en móvil: rejilla de 2 columnas a ancho completo en
+     vez del wrap irregular del inline-flex (la última opción quedaba suelta).
+     !important porque el componente fija display/radio/padding en línea. */
+  .seg-wrap .ds-segmented {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr);
+    width: 100%;
+    min-width: 0;
+    border-radius: var(--r-lg) !important;
+  }
+  .seg-wrap .ds-segmented__opt {
+    width: 100%;
+    padding: 10px 8px !important;
+    border-radius: var(--r-md) !important;
+    text-align: center;
+  }
 }
 
 /* ---- Leaderboard table ---- */
