@@ -18,6 +18,7 @@ export function Home({
   custom,
   onCustom,
   onSolo,
+  onInfinite,
   onCreate,
   onJoin,
   busy,
@@ -30,6 +31,7 @@ export function Home({
   custom: BoardSpec;
   onCustom: (s: BoardSpec) => void;
   onSolo: () => void;
+  onInfinite: () => void;
   onCreate: (mode: Exclude<GameMode, 'solo'>) => void;
   onJoin: (code: string) => void;
   busy: boolean;
@@ -118,6 +120,11 @@ export function Home({
           tone="cyan" title="Solitario" players="1" icon={<span style={{ fontSize: 24 }} aria-hidden>✸</span>}
           subtitle="Despeja el campo a tu ritmo. Bate tu mejor tiempo."
           onClick={onSolo}
+        />
+        <ModeCard
+          tone="purple" title="Infinito" players="1" icon={<span style={{ fontSize: 24 }} aria-hidden>∞</span>}
+          subtitle="El campo no termina nunca: explora, suma puntos y sobrevive con 3 vidas."
+          onClick={onInfinite}
         />
         <ModeCard
           tone="lime" title="Cooperativo" players="2" icon={<span style={{ fontSize: 24 }} aria-hidden>⚑</span>}

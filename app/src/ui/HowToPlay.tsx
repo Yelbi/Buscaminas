@@ -24,6 +24,7 @@ export function HowToPlay() {
             <li><b style={{ color: 'var(--neon-cyan)' }}>Números:</b> dicen cuántas minas hay en las 8 casillas vecinas.</li>
             <li><b style={{ color: 'var(--neon-cyan)' }}>Despeje rápido:</b> clic en un número que ya tiene todas sus banderas para revelar el resto.</li>
             <li><b style={{ color: 'var(--neon-cyan)' }}>Modos:</b> Solitario · Cooperativo (un tablero en equipo) · Competitivo (mismo tablero, a despejar primero).</li>
+            <li><b style={{ color: 'var(--neon-cyan)' }}>Infinito:</b> el tablero no tiene bordes — arrastra para explorar, suma puntos por casilla despejada y administra tus 3 vidas. Cuanto más te alejas, más minas.</li>
           </ul>
         </Dialog>
       )}

@@ -5,6 +5,7 @@ import { Badge, Button } from './components';
 import { Home } from './screens/Home';
 import { Lobby } from './screens/Lobby';
 import { SoloGame } from './screens/SoloGame';
+import { InfiniteGame } from './screens/InfiniteGame';
 import { OnlineGame } from './screens/OnlineGame';
 import { useRoom } from './net/useRoom';
 import { MULTIPLAYER_ENABLED } from './net/config';
@@ -41,7 +42,7 @@ export default function App() {
   const [name, setName] = useState<string>(loadName);
   const [difficulty, setDifficulty] = useState<DifficultyId>(loadDifficulty);
   const [custom, setCustom] = useState<BoardSpec>(loadCustom);
-  const [view, setView] = useState<'home' | 'solo'>('home');
+  const [view, setView] = useState<'home' | 'solo' | 'infinite'>('home');
   const [pendingOnline, setPendingOnline] = useState(false);
 
   useEffect(() => { try { localStorage.setItem(NAME_KEY, name); } catch { /* ignore */ } }, [name]);
@@ -128,6 +129,8 @@ export default function App() {
         onWin={difficulty === 'custom' ? undefined : (timeMs) => { void submitScore(difficulty as PresetId, name || 'Jugador', timeMs); }}
       />
     );
+  } else if (view === 'infinite') {
+    screen = <InfiniteGame onMenu={goMenu} />;
   } else {
     screen = (
       <Home
@@ -138,6 +141,7 @@ export default function App() {
         custom={custom}
         onCustom={setCustom}
         onSolo={() => setView('solo')}
+        onInfinite={() => setView('infinite')}
         onCreate={create}
         onJoin={join}
         busy={pendingOnline}

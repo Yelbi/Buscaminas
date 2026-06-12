@@ -73,6 +73,14 @@ app/
 - **Solitario** — runs entirely client-side (`useSoloGame`). First click is always
   safe (mines are placed lazily, avoiding the first cell and its neighbors). Best
   times are saved per difficulty in `localStorage`.
+- **Infinito** — endless board, client-side (`useInfiniteGame` + `shared/infinite.ts`).
+  Mines are **derived from a deterministic hash** of (seed, row, col), so nothing is
+  pre-generated: the field exists lazily in every direction and only touched cells
+  are stored (sparse map). Density ramps from ~13% near your first click to ~24%
+  far away (progressive difficulty). No win condition — score = cells cleared,
+  with 3 lives; best score persists in `localStorage`. The viewport is virtualized
+  (`InfiniteBoard`): only visible tiles render, drag (or mouse-wheel) to pan,
+  long-press / right-click to flag, ⌖ recenters on your starting point.
 - **Cooperativo** — one shared board hosted by the server. Both players reveal and
   flag the same field; cells are tinted by who revealed them. You win or lose together.
 - **Competitivo** — both players get the **same** board (one seed → identical mine
