@@ -1,0 +1,284 @@
+/* ============================================================
+   GrandGames — menu shell.
+   A self-contained hub surface that frames the game cards. Each
+   game keeps its own identity (fonts/colors live in its card);
+   this file styles the frame around them (header, hero, profile
+   bar) and the button states inline styles can't express
+   (hover / focus / active). Reuses the app's global pop-in /
+   blink / toast animations.
+   ============================================================ */
+
+.gg-menu {
+  --gg-accent: #ffc24b;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(1100px 500px at 50% -160px, color-mix(in srgb, var(--gg-accent) 7%, transparent), transparent 70%),
+    #14121a;
+  color: #efece6;
+  font-family: 'Outfit', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- Header ---- */
+.gg-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(20, 18, 26, 0.82);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.gg-brand { display: inline-flex; align-items: center; gap: 10px; white-space: nowrap; }
+.gg-brand__mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gg-accent);
+  color: #14121a;
+  font-size: 16px;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--gg-accent) 50%, transparent);
+}
+.gg-brand__word {
+  font-family: 'Unbounded', sans-serif;
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: 0.01em;
+  color: #f5f2ea;
+}
+.gg-spacer { flex: 1; }
+
+.gg-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 5px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #1e1c26;
+}
+.gg-chip__avatar { width: 26px; height: 26px; border-radius: 999px; }
+.gg-chip__initial {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Unbounded', sans-serif;
+  font-size: 12px;
+  color: #14121a;
+  background: var(--gg-accent);
+}
+.gg-chip__name {
+  font-weight: 600;
+  font-size: 13px;
+  color: #f5f2ea;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gg-signin {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 16px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--gg-accent) 60%, transparent);
+  color: var(--gg-accent);
+  background: color-mix(in srgb, var(--gg-accent) 10%, transparent);
+  transition: background 0.15s ease;
+}
+.gg-signin:hover { background: color-mix(in srgb, var(--gg-accent) 20%, transparent); }
+
+/* ---- Main ---- */
+.gg-main {
+  flex: 1;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 40px 24px 72px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  box-sizing: border-box;
+}
+
+.gg-hero { display: flex; flex-direction: column; gap: 10px; padding: 8px 0 4px; }
+.gg-hero__title {
+  font-family: 'Unbounded', sans-serif;
+  font-weight: 900;
+  font-size: clamp(34px, 6vw, 62px);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  color: #f5f2ea;
+  margin: 0;
+}
+.gg-hero__title .accent { color: var(--gg-accent); }
+.gg-hero__sub { color: #9d97a8; font-size: 17px; margin: 0; max-width: 52ch; }
+
+/* ---- Profile bar ---- */
+.gg-profile {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  background: #1c1a24;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 18px 22px;
+}
+.gg-profile__id { display: flex; align-items: center; gap: 14px; min-width: 230px; }
+.gg-profile__avatar { width: 48px; height: 48px; border-radius: 999px; border: 2px solid var(--gg-accent); }
+.gg-profile__initial {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Unbounded', sans-serif;
+  font-weight: 700;
+  font-size: 19px;
+  color: #14121a;
+  background: var(--gg-accent);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--gg-accent) 35%, transparent);
+}
+.gg-profile__meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.gg-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #9d97a8;
+}
+.gg-profile__name {
+  font-family: 'Unbounded', sans-serif;
+  font-weight: 700;
+  font-size: 19px;
+  color: #f5f2ea;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gg-profile__session { color: #6f6a7c; font-size: 13px; }
+.gg-profile__controls { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.gg-field { display: flex; flex-direction: column; gap: 6px; }
+.gg-name-input {
+  width: 200px;
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #14121a;
+  color: #f5f2ea;
+  font-family: 'Outfit', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.gg-name-input:focus {
+  border-color: var(--gg-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gg-accent) 22%, transparent);
+}
+.gg-google-slot { min-height: 42px; display: flex; align-items: center; }
+.gg-hint { color: #6f6a7c; font-size: 12px; max-width: 230px; }
+.gg-signout {
+  display: inline-flex;
+  align-items: center;
+  height: 42px;
+  padding: 0 16px;
+  margin-top: 19px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #c9c4d2;
+  background: transparent;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.gg-signout:hover { border-color: #ff6b57; color: #ff6b57; }
+
+/* ---- Game grid ---- */
+.gg-grid {
+  display: flex;
+  flex-direction: column; /* one game below the next, full width, natural height */
+  gap: 20px;
+}
+.gg-card { position: relative; overflow: hidden; border-radius: 20px; }
+.gg-scanlines { position: absolute; inset: 0; pointer-events: none; }
+
+/* Buscaminas "Jugar ahora" — hover glow + press feedback */
+.gg-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  padding: 0 26px;
+  font-family: 'Pixelify Sans', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  border-radius: 12px;
+  border: 2px solid #19e3ff;
+  color: #07070f;
+  background: #19e3ff;
+  box-shadow: 0 0 20px rgba(25, 227, 255, 0.5);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.gg-play:hover { box-shadow: 0 0 30px rgba(25, 227, 255, 0.7); }
+.gg-play:active { transform: translateY(1px) scale(0.98); }
+
+/* Coming-soon CTA — shared layout; each game sets its own font/border/color inline */
+.gg-soon {
+  display: inline-flex;
+  align-items: center;
+  height: 42px;
+  padding: 0 20px;
+  cursor: default;
+  background: transparent;
+}
+
+.gg-footer {
+  margin: 12px 0 0;
+  text-align: center;
+  color: #55505f;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 560px) {
+  .gg-main { padding: 28px 16px 56px; gap: 22px; }
+  .gg-header { padding: 0 16px; }
+  .gg-name-input { width: 100%; }
+  .gg-field { flex: 1 1 100%; }
+}
+
+/* Reversi hub card — its teaser disc flips on a loop; a gold sheen sweeps the top. */
+@keyframes rv-flipLoop { 0%, 42% { transform: rotateY(0deg); } 52%, 92% { transform: rotateY(180deg); } 100% { transform: rotateY(360deg); } }
+@keyframes rv-coverSheen { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }

@@ -4,15 +4,9 @@ import { DIFFICULTIES, DIFFICULTY_ORDER } from '../../shared/types';
 import type { PresetId } from '../../shared/types';
 import { LEADERBOARD_REACHABLE, fetchTop } from '../net/leaderboard';
 import type { LbEntry } from '../net/leaderboard';
+import { formatClock } from '../lib/format';
 
 type Status = 'loading' | 'ok' | 'error' | 'disabled' | 'unreachable';
-
-function fmt(ms: number): string {
-  const total = ms / 1000;
-  const m = Math.floor(total / 60);
-  const s = total - m * 60;
-  return `${m}:${s.toFixed(1).padStart(4, '0')}`;
-}
 
 const RANK_COLOR: Record<number, string> = {
   1: 'var(--neon-yellow)',
@@ -94,7 +88,7 @@ export function Leaderboard({ playerName }: { playerName?: string }) {
                   {e.name}{mine ? <Badge tone="cyan" style={{ marginLeft: 8 }}>tú</Badge> : null}
                 </span>
                 <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--neon-cyan)', textAlign: 'right', fontSize: 'var(--fs-lg)' }}>
-                  {fmt(e.timeMs)}
+                  {formatClock(e.timeMs, true)}
                 </span>
               </div>
             );

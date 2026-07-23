@@ -24,6 +24,10 @@ export interface TileProps {
   sizePx?: number;
   /** Value for the data-cell attribute (used for touch gesture delegation). */
   dataCell?: string;
+  /** Keyboard cursor is on this cell → draw a focus ring. */
+  cursor?: boolean;
+  /** Tab order for the button (−1 keeps big boards to a single tab stop). */
+  tabIndex?: number;
 }
 
 /**
@@ -42,6 +46,8 @@ export const Tile = memo(function Tile({
   className,
   sizePx,
   dataCell,
+  cursor = false,
+  tabIndex,
 }: TileProps) {
   const px = sizePx != null ? `${sizePx}px` : { sm: 'var(--tile-sm)', md: 'var(--tile-md)', lg: 'var(--tile-lg)' }[size];
   const ownerColor = owner === 'p1' ? 'var(--player-1)' : owner === 'p2' ? 'var(--player-2)' : null;
@@ -76,6 +82,13 @@ export const Tile = memo(function Tile({
     };
   }
 
+  // Keyboard cursor ring — composed onto the existing shadow so it works over
+  // any tile face (and any owner outline).
+  if (cursor) {
+    const ring = '0 0 0 2px var(--neon-cyan), 0 0 12px rgba(25,227,255,0.65)';
+    face = { ...face, boxShadow: face.boxShadow ? `${face.boxShadow}, ${ring}` : ring };
+  }
+
   return (
     <button
       type="button"
@@ -83,6 +96,7 @@ export const Tile = memo(function Tile({
       onContextMenu={onContextMenu}
       className={className}
       data-cell={dataCell}
+      tabIndex={tabIndex}
       aria-label={
         state === 'flagged' ? 'Casilla con bandera'
           : state === 'hidden' ? 'Casilla oculta'
@@ -103,6 +117,7 @@ export const Tile = memo(function Tile({
         fontSize: `calc(${px} * 0.5)`,
         lineHeight: 1,
         position: 'relative',
+        zIndex: cursor ? 2 : undefined,
         transition: 'transform var(--dur-fast) var(--ease-snap), filter var(--dur-fast)',
         outline: ownerColor ? `2px solid color-mix(in srgb, ${ownerColor} 70%, transparent)` : 'none',
         outlineOffset: ownerColor ? '-1px' : 0,

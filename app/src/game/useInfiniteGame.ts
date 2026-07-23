@@ -73,6 +73,18 @@ export function useInfiniteGame(): InfiniteApi {
   const [started, setStarted] = useState(false);
   const startRef = useRef<number | null>(null);
   const boomIdRef = useRef(0);
+  const bestRef = useRef<number | null>(readBest());
+
+  /** Persist the best score as soon as it improves (not only on game over), so
+      leaving or reloading mid-run keeps your high score. */
+  const syncBest = useCallback(() => {
+    const score = stateRef.current.revealed;
+    if (bestRef.current == null || score > bestRef.current) {
+      bestRef.current = score;
+      writeBest(score);
+      setBestScore(score);
+    }
+  }, []);
 
   const commit = useCallback(() => {
     const st = stateRef.current;
@@ -97,13 +109,9 @@ export function useInfiniteGame(): InfiniteApi {
     const st = stateRef.current;
     if (st.status !== 'over') return;
     if (startRef.current != null) setElapsedMs(Date.now() - startRef.current);
-    const prev = readBest();
-    if (prev == null || st.revealed > prev) {
-      writeBest(st.revealed);
-      setBestScore(st.revealed);
-    }
+    syncBest();
     audio.play('lose');
-  }, []);
+  }, [syncBest]);
 
   const onMineHit = useCallback((r: number, c: number, gameOver: boolean) => {
     setBoom({ r, c, id: ++boomIdRef.current });
@@ -119,9 +127,10 @@ export function useInfiniteGame(): InfiniteApi {
     if (res.hitMine) onMineHit(r, c, res.gameOver);
     else if (res.cellsOpened === 1) audio.play('reveal');
     else if (res.cellsOpened > 1) audio.play('open', res.cellsOpened);
+    if (res.cellsOpened > 0) syncBest();
     finalizeIfOver();
     commit();
-  }, [beginIfNeeded, onMineHit, finalizeIfOver, commit]);
+  }, [beginIfNeeded, onMineHit, finalizeIfOver, commit, syncBest]);
 
   const flag = useCallback((r: number, c: number) => {
     const st = stateRef.current;
@@ -141,9 +150,10 @@ export function useInfiniteGame(): InfiniteApi {
     if (res.hitMine) onMineHit(r, c, res.gameOver); // la onda sale del número pulsado
     if (res.cellsOpened === 1) audio.play('reveal');
     else if (res.cellsOpened > 1) audio.play('open', res.cellsOpened);
+    if (res.cellsOpened > 0) syncBest();
     finalizeIfOver();
     commit();
-  }, [onMineHit, finalizeIfOver, commit]);
+  }, [onMineHit, finalizeIfOver, commit, syncBest]);
 
   const reset = useCallback(() => {
     stateRef.current = createInfinite(randomSeed());
@@ -151,7 +161,8 @@ export function useInfiniteGame(): InfiniteApi {
     setStarted(false);
     setElapsedMs(0);
     setBoom(null);
-    setBestScore(readBest());
+    bestRef.current = readBest();
+    setBestScore(bestRef.current);
     setSnap({ status: 'playing', score: 0, lives: INFINITE_LIVES, started: false, origin: null });
     setVersion((v) => v + 1);
     setRound((n) => n + 1);

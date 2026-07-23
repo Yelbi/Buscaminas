@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from 'react';
+import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { Tile } from '../components/Tile';
 import type { Owner, TileSize, TileState } from '../components/Tile';
 import type { BoardView, CellView } from '../../shared/types';
@@ -57,6 +57,7 @@ export function GameBoard({
   const [seqStep, setSeqStep] = useState(-1);
   const [shake, setShake] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
+  const [cursor, setCursor] = useState({ r: 0, c: 0 }); // keyboard cursor
 
   const prevRef = useRef<BoardView | null>(null);
   const prevKeyRef = useRef(gameKey);
@@ -102,6 +103,7 @@ export function GameBoard({
     setSeqStep(-1);
     setShake(false);
     setCelebrate(false);
+    setCursor({ r: 0, c: 0 });
     mineIndexRef.current = new Map();
     seqRanForRef.current = null;
     prevRef.current = null;
@@ -233,14 +235,38 @@ export function GameBoard({
     if (!interactive) return;
     if (Date.now() - lastTouchRef.current < 600) return; // touch already handled it
     const cell = cellFromTarget(e.target);
-    if (cell) onCell(cell.r, cell.c);
+    if (cell) { setCursor(cell); onCell(cell.r, cell.c); }
   };
 
   const onGridContext = (e: ReactMouseEvent) => {
     e.preventDefault();
     if (!interactive) return;
     const cell = cellFromTarget(e.target);
-    if (cell) onCellContext(cell.r, cell.c);
+    if (cell) { setCursor(cell); onCellContext(cell.r, cell.c); }
+  };
+
+  /* ---- Keyboard: arrows move a cursor, Enter/Space reveal (or chord), F flags.
+     Tiles are tabIndex=-1, so a big board is a single tab stop, not hundreds. ---- */
+  const onGridKeyDown = (e: ReactKeyboardEvent) => {
+    if (!interactive) return;
+    const rows = view.length;
+    const ncols = view[0]?.length || 0;
+    if (!rows || !ncols) return;
+    let { r, c } = cursor;
+    switch (e.key) {
+      case 'ArrowUp': r = Math.max(0, r - 1); break;
+      case 'ArrowDown': r = Math.min(rows - 1, r + 1); break;
+      case 'ArrowLeft': c = Math.max(0, c - 1); break;
+      case 'ArrowRight': c = Math.min(ncols - 1, c + 1); break;
+      case 'Home': c = 0; break;
+      case 'End': c = ncols - 1; break;
+      case 'Enter':
+      case ' ': e.preventDefault(); onCell(cursor.r, cursor.c); return;
+      case 'f': case 'F': e.preventDefault(); onCellContext(cursor.r, cursor.c); return;
+      default: return;
+    }
+    e.preventDefault();
+    setCursor({ r, c });
   };
 
   /* ---- Touch: tap to reveal, long-press to flag ---- */
@@ -287,8 +313,17 @@ export function GameBoard({
         }}
       >
         <div
+          className="game-board__grid"
+          aria-label="Tablero de buscaminas. Usa las flechas para moverte, Enter para revelar y F para poner bandera."
+          aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Enter F"
+          tabIndex={interactive ? 0 : -1}
           onClick={onGridClick}
           onContextMenu={onGridContext}
+          onKeyDown={onGridKeyDown}
+          // Keep focus on the grid (the single Tab stop), never on an individual
+          // tile — otherwise a clicked-then-focused tile's native Enter would
+          // fire alongside onKeyDown and double the action.
+          onMouseDown={(e) => { if ((e.target as HTMLElement).closest('button[data-cell]')) e.preventDefault(); }}
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
@@ -307,6 +342,8 @@ export function GameBoard({
                   size={size}
                   sizePx={tilePx}
                   dataCell={`${r}-${c}`}
+                  tabIndex={-1}
+                  cursor={interactive && cursor.r === r && cursor.c === c}
                   className={anim ? ANIM_CLASS[anim.type] : undefined}
                   style={anim?.delay ? { animationDelay: `${anim.delay}s` } : undefined}
                 />

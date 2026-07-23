@@ -5,13 +5,19 @@
    here. Run with: npm run dev:server  (or npm run server)
    ============================================================ */
 
+// Load app/.env (if present) BEFORE anything reads process.env — e.g. the
+// leaderboard's UPSTASH_* vars. Existing real env vars (Render) always win, and
+// a missing .env is a harmless no-op, so this is safe in production.
+import 'dotenv/config';
 import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { WebSocketServer } from 'ws';
 import type { WebSocket } from 'ws';
 import { Room } from './room';
+import { handleReversi, reversiDrop } from './reversi';
+import { handleCuatro, cuatroDrop } from './cuatro';
 import { decode, encode, makeRoomCode } from '../shared/protocol';
-import type { ClientMsg, ServerMsg } from '../shared/protocol';
+import type { ClientMsg, RvClientMsg, C4ClientMsg, ServerMsg } from '../shared/protocol';
 import type { PlayerSlotId } from '../shared/types';
 import { DIFFICULTIES } from '../shared/types';
 import { getTop, isPreset, leaderboardEnabled, submitScore } from './leaderboard';
@@ -76,6 +82,16 @@ function tryStart(room: Room): void {
 }
 
 function handle(ws: WebSocket, msg: ClientMsg): void {
+  // Reversi and 4 en línea live in their own namespaced subsystems.
+  if (typeof msg.t === 'string' && msg.t.startsWith('rv:')) {
+    handleReversi(ws, msg as RvClientMsg);
+    return;
+  }
+  if (typeof msg.t === 'string' && msg.t.startsWith('c4:')) {
+    handleCuatro(ws, msg as C4ClientMsg);
+    return;
+  }
+
   const ctx = ctxOf.get(ws);
   const room = ctx ? rooms.get(ctx.code) : undefined;
 
@@ -410,8 +426,8 @@ wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
       err(ws, 'Error interno del servidor.');
     }
   });
-  ws.on('close', () => dropConnection(ws, true));
-  ws.on('error', () => dropConnection(ws, true));
+  ws.on('close', () => { dropConnection(ws, true); reversiDrop(ws, true); cuatroDrop(ws, true); });
+  ws.on('error', () => { dropConnection(ws, true); reversiDrop(ws, true); cuatroDrop(ws, true); });
 });
 
 const heartbeat = setInterval(() => {

@@ -129,19 +129,34 @@ export function applyMines(state: GameState, mineSet: Set<number>): void {
 }
 
 /**
- * Move the mine at (r,c) to the first available non-mine cell, then recompute
- * adjacency. Used for first-click safety on pre-generated (versus) boards so a
- * player can't lose instantly while keeping both boards otherwise identical.
+ * Move the mine at (r,c) to another free cell for first-click safety on a
+ * pre-generated (versus) board, so a player can't lose instantly.
+ *
+ * The destination is chosen by scanning from a deterministic, well-distributed
+ * offset derived from the clicked cell — NOT from index 0 — so the relocated
+ * mine never clusters in the top-left corner. Note: since each player's first
+ * click is their own, this personalizes their board by at most one mine; the
+ * two versus boards keep the same mine count and near-identical layout, which
+ * is what keeps the race fair.
  */
 export function relocateMine(state: GameState, r: number, c: number): void {
   const { rows, cols, cells } = state;
   if (!cells[r][c].mine) return;
   cells[r][c].mine = false;
-  for (let i = 0; i < rows * cols; i++) {
+
+  const total = rows * cols;
+  const clicked = r * cols + c;
+  // Hash the clicked index into a spread-out starting offset (deterministic).
+  let h = Math.imul(clicked ^ 0x9e3779b1, 0x85ebca77) >>> 0;
+  h ^= h >>> 13;
+  const start = h % total;
+
+  for (let k = 0; k < total; k++) {
+    const i = (start + k) % total;
+    if (i === clicked) continue;
     const rr = Math.floor(i / cols);
     const cc = i % cols;
-    const t = cells[rr][cc];
-    if (!t.mine && !(rr === r && cc === c)) { t.mine = true; break; }
+    if (!cells[rr][cc].mine) { cells[rr][cc].mine = true; break; }
   }
   computeAdjacency(state);
 }

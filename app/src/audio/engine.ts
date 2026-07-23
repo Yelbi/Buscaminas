@@ -2,7 +2,7 @@
    Buscaminas — Audio engine
    SFX are synthesized with the Web Audio API (flags / reveals /
    explosions / win / lose). Background music streams two MP3
-   tracks ("Menu 1" / "Menu 2") as a looping playlist. Browser
+   tracks (Buscaminas 1 / 2) as a looping playlist. Browser
    autoplay rules mean audio only starts after the first user
    gesture — see unlock(). Preferences persist in localStorage.
    ============================================================ */
@@ -16,7 +16,7 @@ type Win = typeof window & { webkitAudioContext?: typeof AudioContext };
 const MUSIC_KEY = 'buscaminas.audio.music';
 const SFX_KEY = 'buscaminas.audio.sfx';
 const MUSIC_VOLUME = 0.5;
-const MUSIC_TRACKS = ['/audio/menu-1.mp3', '/audio/menu-2.mp3'];
+const MUSIC_TRACKS = ['/audio/buscaminas-1.mp3', '/audio/buscaminas-2.mp3'];
 
 function readPref(key: string, dflt: boolean): boolean {
   try { const v = localStorage.getItem(key); return v == null ? dflt : v === '1'; } catch { return dflt; }

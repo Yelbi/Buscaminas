@@ -225,6 +225,7 @@ export function InfiniteBoard({
                   value={t.value}
                   sizePx={S}
                   dataCell={`${r},${c}`}
+                  tabIndex={-1}
                   className={isBoom ? 'tile-explode-big' : undefined}
                 />
               );

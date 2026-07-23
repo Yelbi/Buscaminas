@@ -26,6 +26,8 @@ export interface SoloApi {
   revealed: number;
   elapsedMs: number;
   bestMs: number | null;
+  /** True only when the game just won AND beat the previous best time. */
+  newRecord: boolean;
   reveal: (r: number, c: number) => void;
   flag: (r: number, c: number) => void;
   chord: (r: number, c: number) => void;
@@ -73,6 +75,7 @@ export function useSoloGame(spec: ResolvedSpec, bestKey: string | null): SoloApi
   const [started, setStarted] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [bestMs, setBestMs] = useState<number | null>(() => readBest(bestKey));
+  const [newRecord, setNewRecord] = useState(false);
   const [round, setRound] = useState(0);
   const startRef = useRef<number | null>(null);
 
@@ -83,6 +86,7 @@ export function useSoloGame(spec: ResolvedSpec, bestKey: string | null): SoloApi
     startRef.current = null;
     setStarted(false);
     setElapsedMs(0);
+    setNewRecord(false);
     setBestMs(readBest(bestKey));
     setSnap(build(stateRef.current));
     setRound((n) => n + 1);
@@ -104,10 +108,10 @@ export function useSoloGame(spec: ResolvedSpec, bestKey: string | null): SoloApi
     if (st.status === 'lost') revealAllMines(st);
     if (st.status === 'won') {
       flagAllMines(st);
-      if (bestKey) {
-        const prev = readBest(bestKey);
-        if (prev == null || total < prev) { writeBest(bestKey, total); setBestMs(total); }
-      }
+      const prev = bestKey ? readBest(bestKey) : null;
+      const beat = bestKey != null && (prev == null || total < prev);
+      if (beat) { writeBest(bestKey!, total); setBestMs(total); }
+      setNewRecord(beat);
     }
   }, [bestKey]);
 
@@ -154,6 +158,7 @@ export function useSoloGame(spec: ResolvedSpec, bestKey: string | null): SoloApi
     revealed: snap.revealed,
     elapsedMs,
     bestMs,
+    newRecord,
     reveal, flag, chord, reset,
   };
 }

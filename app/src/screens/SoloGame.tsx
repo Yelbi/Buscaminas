@@ -89,8 +89,8 @@ export function SoloGame({
           {game.status === 'won' ? (
             <>
               Tiempo <b style={{ color: 'var(--neon-lime)' }}>{formatClock(game.elapsedMs)}</b>
-              {game.bestMs != null && game.elapsedMs <= game.bestMs && ' · ¡Nuevo récord personal!'}
-              {game.bestMs != null && game.elapsedMs > game.bestMs && <> · Récord {formatClock(game.bestMs)}</>}
+              {game.newRecord && ' · ¡Nuevo récord personal!'}
+              {!game.newRecord && game.bestMs != null && <> · Récord {formatClock(game.bestMs)}</>}
               {' '}· {cfg.mines} minas despejadas.
             </>
           ) : (
